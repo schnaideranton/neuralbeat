@@ -3,7 +3,6 @@ import React from 'react';
 interface ControlsProps {
   isPlaying: boolean;
   bpm: number;
-  currentPresetName?: string;
   onPlayToggle: () => void;
   onBpmChange: (bpm: number) => void;
   onRandomize: () => void;
@@ -11,94 +10,62 @@ interface ControlsProps {
   onRandomizeEffects: () => void;
   onPreset: () => void;
   onClear: () => void;
+  onScatter16: () => void;
 }
 
 export const Controls: React.FC<ControlsProps> = ({
   isPlaying,
   bpm,
-  currentPresetName,
   onPlayToggle,
   onBpmChange,
-  onRandomize,
-  onRandomizeSounds,
-  onRandomizeEffects,
   onPreset,
-  onClear
+  onClear,
+  onScatter16
 }) => {
   return (
-    <div className="mb-12 text-base md:text-lg leading-loose border-b border-page-dim pb-8">
-      <p className="inline">
-        <span className="text-page-dim mr-2">&gt;</span>
-        System status is currently 
-        <button 
-          onClick={onPlayToggle}
-          className={`mx-2 px-1 border-b-2 hover:bg-page-dim/20 transition-all font-bold ${isPlaying ? 'border-page-accent text-page-accent' : 'border-page-dim text-page-dim'}`}
-        >
-          [{isPlaying ? ' PLAYING ' : ' STOPPED '}]
-        </button>.
-      </p>
-      
-      <p className="inline mt-2 md:mt-0">
-        The master clock is set to 
-        <span className="mx-2 font-bold text-page-highlight inline-flex items-center gap-2 border-b border-dashed border-page-dim">
-            {bpm} BPM
-            <input
-                type="range"
-                min="60"
-                max="240"
-                value={bpm}
-                onChange={(e) => onBpmChange(Number(e.target.value))}
-                className="w-24 opacity-50 hover:opacity-100 transition-opacity"
-            />
-        </span>.
-      </p>
+    <div className="mb-10 grid grid-cols-1 md:grid-cols-[auto_1fr_auto] gap-8 items-center border border-page-dim p-6 bg-black">
+      {/* PLAY BUTTON */}
+      <button 
+        onClick={onPlayToggle}
+        className={`h-14 px-10 font-black text-xs border transition-all ${isPlaying ? 'bg-red-900/10 border-red-500 text-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'bg-page-accent border-page-accent text-black hover:bg-white hover:border-white'}`}
+      >
+        {isPlaying ? '[ TERMINATE ]' : '[ EXECUTE ]'}
+      </button>
 
-      <p className="mt-4">
-        <span className="text-page-dim mr-2">&gt;</span>
-        Configuration: Load 
+      {/* TEMPO SLIDER */}
+      <div className="flex flex-col gap-2">
+        <div className="flex justify-between text-[10px] uppercase text-page-dim font-black">
+          <span>Clock_Frequency</span>
+          <span className="text-page-accent">{bpm} BPM</span>
+        </div>
+        <input 
+          type="range" min="60" max="220" value={bpm} 
+          onChange={(e) => onBpmChange(Number(e.target.value))}
+          className="w-full"
+        />
+      </div>
+
+      {/* MODE SELECTORS */}
+      <div className="flex gap-2">
         <button 
-          onClick={onPreset} 
-          className="mx-1 hover:text-white text-page-accent underline decoration-dotted underline-offset-4"
+          onClick={onPreset}
+          className="h-14 px-4 border border-page-dim text-[10px] font-black hover:border-page-accent hover:text-white transition-colors"
         >
-          {currentPresetName || 'a preset pattern'}
-        </button>.
-        
-        <br className="md:hidden" />
-        
-        <span className="text-page-dim ml-0 md:ml-2">::</span> Generators:
+          CLASSIC_MODES
+        </button>
         <button 
-          onClick={onRandomize} 
-          className="mx-2 hover:text-white text-page-highlight underline decoration-dotted underline-offset-4"
+          onClick={onScatter16}
+          className="h-14 px-6 bg-page-highlight text-black font-black text-[10px] hover:bg-page-accent transition-all shadow-[4px_4px_0px_rgba(74,222,128,0.5)]"
         >
-          Full RND
+          SCATTER_16
         </button>
-        /
-         <button 
-          onClick={onRandomizeSounds} 
-          className="mx-2 hover:text-yellow-400 text-yellow-600 underline decoration-dotted underline-offset-4"
-          title="Randomize Synth Params Only"
-        >
-          RND Sounds
-        </button>
-        /
-         <button 
-          onClick={onRandomizeEffects} 
-          className="mx-2 hover:text-indigo-400 text-indigo-600 underline decoration-dotted underline-offset-4"
-           title="Randomize FX Chain Only"
-        >
-          RND Effects
-        </button>
-        
-        <br className="block my-2" />
-        <span className="text-page-dim">&gt;</span>
-        To reset, 
         <button 
           onClick={onClear} 
-          className="mx-1 hover:text-red-400 text-page-dim underline decoration-dotted underline-offset-4"
+          className="h-14 px-4 border border-red-900/40 text-red-900 hover:text-red-500 hover:bg-red-500/5 text-[10px] font-bold"
         >
-          clear all data
-        </button>.
-      </p>
+          CLS
+        </button>
+      </div>
     </div>
   );
 };
