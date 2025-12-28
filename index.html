@@ -3,22 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>NeuralBeat Text</title>
+    <title>NeuralBeat // Terminal v1.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
         theme: {
           extend: {
-            fontFamily: {
-              mono: ['"Courier New"', 'Courier', 'monospace'],
-            },
             colors: {
               page: {
-                bg: '#1a1a1a',
-                text: '#d4d4d4',
-                highlight: '#ffffff',
-                dim: '#666666',
-                accent: '#4ade80' // Terminal green-ish
+                bg: '#050505',
+                accent: '#4ade80',
+                dim: '#222222',
+                highlight: '#ffffff'
               }
             }
           }
@@ -26,72 +22,34 @@
       }
     </script>
     <style>
-      body {
-        background-color: #1a1a1a;
-        color: #d4d4d4;
-        font-family: 'Courier New', Courier, monospace;
+      body { 
+        background-color: #050505; 
+        color: #d4d4d4; 
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; 
+        margin: 0; 
+        overflow-x: hidden;
       }
-      /* Custom minimal scrollbar */
-      ::-webkit-scrollbar {
-        width: 8px;
-      }
-      ::-webkit-scrollbar-track {
-        background: #1a1a1a; 
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #333; 
-        border: 1px solid #1a1a1a;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #555; 
-      }
-      
-      /* Range Slider Styling to look like a simple line */
-      input[type=range] {
-        -webkit-appearance: none; 
-        background: transparent; 
-        height: 14px;
-        vertical-align: middle;
-      }
-      input[type=range]::-webkit-slider-runnable-track {
-        width: 100%;
-        height: 2px;
-        background: #444;
-        border: none;
-      }
-      input[type=range]::-webkit-slider-thumb {
-        -webkit-appearance: none;
-        border: none;
-        height: 10px;
-        width: 10px;
-        border-radius: 0;
-        background: #d4d4d4;
-        margin-top: -4px;
-        cursor: pointer;
-      }
-      input[type=range]:focus {
-        outline: none;
-      }
-      
-      /* No-select utilities for better UI feel */
-      .no-select {
-        user-select: none;
-      }
+      input[type=range] { -webkit-appearance: none; background: transparent; }
+      input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 1px; background: #333; }
+      input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 12px; width: 12px; background: #4ade80; margin-top: -5.5px; cursor: pointer; border-radius: 0; }
+      .cursor-blink { animation: blink 1s step-end infinite; }
+      @keyframes blink { 50% { opacity: 0; } }
+      .scroll-hide::-webkit-scrollbar { display: none; }
     </style>
   <script type="importmap">
 {
   "imports": {
-    "lucide-react": "https://esm.sh/lucide-react@^0.561.0",
+    "react": "https://esm.sh/react@^19.2.3",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
     "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3"
+    "vite": "https://esm.sh/vite@^7.3.0",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
 </head>
   <body>
     <div id="root"></div>
-  <script type="module" src="/index.tsx"></script>
-</body>
+    <script type="module" src="/index.tsx"></script>
+  </body>
 </html>
