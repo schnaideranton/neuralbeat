@@ -1,55 +1,19 @@
 <!DOCTYPE html>
-<html lang="ru">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>NeuralBeat // Terminal v1.0</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              page: {
-                bg: '#050505',
-                accent: '#4ade80',
-                dim: '#222222',
-                highlight: '#ffffff'
-              }
-            }
-          }
-        }
-      }
-    </script>
-    <style>
-      body { 
-        background-color: #050505; 
-        color: #d4d4d4; 
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; 
-        margin: 0; 
-        overflow-x: hidden;
-      }
-      input[type=range] { -webkit-appearance: none; background: transparent; }
-      input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 1px; background: #333; }
-      input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 12px; width: 12px; background: #4ade80; margin-top: -5.5px; cursor: pointer; border-radius: 0; }
-      .cursor-blink { animation: blink 1s step-end infinite; }
-      @keyframes blink { 50% { opacity: 0; } }
-      .scroll-hide::-webkit-scrollbar { display: none; }
-    </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@^19.2.3",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "vite": "https://esm.sh/vite@^7.3.0",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
-  }
-}
-</script>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <title>NeuralBeat</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #1a1a2e; }
+    canvas { display: block; touch-action: none; }
+  </style>
 </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
-  </body>
+<body>
+  <canvas id="game"></canvas>
+  <script type="module" src="/src/main.ts"></script>
+</body>
 </html>

@@ -1,5 +1,0 @@
-{
-  "name": "NeuralBeat ",
-  "description": "A web-based drum machine sequencer with randomization features, BPM control, and synthesized audio.",
-  "requestFramePermissions": []
-}
