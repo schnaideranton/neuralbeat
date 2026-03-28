@@ -1,8 +1,8 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.neuralbeat.puzzle',
-  appName: 'NeuralBeat',
+  appId: 'com.dropskins.puzzle',
+  appName: 'DropSkins',
   webDir: 'dist',
   server: {
     androidScheme: 'https',

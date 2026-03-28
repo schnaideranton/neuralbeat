@@ -25,7 +25,7 @@ jobs:
         with:
           node-version: 20
       - run: npm ci
-      - run: npx vite build --base="/neuralbeat/"
+      - run: npx vite build --base="/dropskins/"
       - uses: actions/configure-pages@v4
       - uses: actions/upload-pages-artifact@v3
         with:
