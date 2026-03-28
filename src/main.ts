@@ -195,9 +195,7 @@ function updateAnim(dt: number): void {
 function setupCanvas(): void {
   dpr = window.devicePixelRatio || 1;
   const vw = window.innerWidth;
-  const debugBar = document.getElementById('debug');
-  const debugH = debugBar ? debugBar.offsetHeight : 0;
-  const vh = window.innerHeight - debugH;
+  const vh = window.innerHeight;
   if (state) resize(state, vw, vh);
   const w = state?.canvasW ?? Math.min(vw, Math.floor(vh * 0.52));
   canvas.width = w * dpr;
@@ -211,10 +209,7 @@ function setupCanvas(): void {
 async function init(): Promise<void> {
   assets = await loadAssets();
   setupDebug();
-  const debugBar = document.getElementById('debug');
-  const debugH = debugBar ? debugBar.offsetHeight : 0;
-  const vh = window.innerHeight - debugH;
-  state = createState(window.innerWidth, vh);
+  state = createState(window.innerWidth, window.innerHeight);
   setupCanvas();
   setupInput();
   lastTime = performance.now();
