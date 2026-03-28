@@ -19,16 +19,17 @@ if (typeof CanvasRenderingContext2D !== 'undefined' &&
 
 // ── Skin types ────────────────────────────────────────────────────────────
 
-export type SkinType = 'primitive' | 'emoji' | 'flags' | 'excel';
+export type SkinType = 'primitive' | 'emoji' | 'flags' | 'excel' | 'abcde';
 
 export const SKIN_LABELS: Record<SkinType, string> = {
   primitive: 'Primitive',
   emoji: 'Emoji',
   flags: 'Flags',
   excel: 'Excel',
+  abcde: 'ABCDE',
 };
 
-export const SKIN_LIST: SkinType[] = ['primitive', 'emoji', 'flags', 'excel'];
+export const SKIN_LIST: SkinType[] = ['primitive', 'emoji', 'flags', 'excel', 'abcde'];
 
 // ── Bauhaus palette ───────────────────────────────────────────────────────
 
@@ -53,15 +54,16 @@ function getBlockStyle(blockId: number): BlockStyle {
 const EXCEL_COLORS = [
   '#2E7D32', // dark green
   '#4CAF50', // medium green
-  '#FFF9C4', // light yellow
-  '#FFCC80', // peach/orange
-  '#A1887F', // brown/tan
-  '#BBDEFB', // light blue
-  '#F8BBD0', // pink
-  '#D7CCC8', // light brown
-  '#C8E6C9', // light green
-  '#FFE0B2', // light peach
-  '#E1BEE7', // light purple
+  '#FDD835', // bright yellow
+  '#FF8A65', // coral/peach
+  '#8D6E63', // rich brown
+  '#64B5F6', // medium blue
+  '#F06292', // deeper pink
+  '#A1887F', // tan
+  '#81C784', // medium green
+  '#FFB74D', // amber orange
+  '#CE93D8', // medium purple
+  '#FFEE58', // lemon yellow
 ];
 
 const EXCEL_TEXTS = [
@@ -145,6 +147,38 @@ const FLAGS = [
 
 function getBlockFlag(blockId: number): string {
   return FLAGS[Math.floor((blockId * 137.508) % FLAGS.length)];
+}
+
+// ── ABCDE word pools & colors ────────────────────────────────────────────
+
+const ABCDE_WORDS: string[][] = [
+  [], // index 0 unused
+  ['I', 'A'],
+  ['go', 'be', 'do', 'no', 'me', 'he', 'we', 'so', 'am', 'an', 'as', 'at', 'by', 'if', 'in', 'is', 'it', 'my', 'of', 'on', 'or', 'to', 'up', 'us'],
+  ['boy', 'cat', 'dog', 'run', 'big', 'the', 'and', 'for', 'are', 'but', 'not', 'you', 'all', 'can', 'her', 'was', 'one', 'our', 'out', 'day', 'had', 'has', 'hot', 'old', 'red', 'new', 'now', 'way', 'may', 'say', 'see', 'two', 'how', 'its', 'let', 'put', 'too', 'use'],
+  ['ball', 'game', 'love', 'word', 'play', 'time', 'come', 'make', 'like', 'know', 'just', 'them', 'then', 'when', 'from', 'have', 'been', 'each', 'also', 'back', 'call', 'city', 'cool', 'dark', 'deep', 'drop', 'face', 'fast', 'feel', 'fire', 'free', 'good', 'hand', 'help', 'high', 'home', 'hope', 'jump', 'keep', 'kind', 'last', 'life', 'long', 'look', 'mind', 'moon', 'name', 'next', 'open', 'plan', 'push', 'rain', 'real', 'road', 'rock', 'safe', 'seed', 'ship', 'side', 'skin', 'soft', 'star', 'step', 'stop', 'sure', 'tall', 'team', 'tree', 'true', 'turn', 'very', 'wait', 'walk', 'warm', 'wide', 'wild', 'wind', 'wish', 'work', 'year', 'zero'],
+];
+
+const ABCDE_COLORS = [
+  '#C62828', // deep red
+  '#1565C0', // strong blue
+  '#2E7D32', // forest green
+  '#E65100', // burnt orange
+  '#6A1B9A', // deep purple
+  '#00838F', // dark teal
+  '#AD1457', // dark magenta
+  '#4E342E', // dark brown
+  '#283593', // indigo
+  '#00695C', // dark cyan-green
+];
+
+function getAbcdeWord(blockId: number, blockWidth: number): string {
+  const pool = ABCDE_WORDS[Math.min(blockWidth, 4)] || ABCDE_WORDS[1];
+  return pool[Math.floor((blockId * 137.508) % pool.length)];
+}
+
+function getAbcdeColor(blockId: number): string {
+  return ABCDE_COLORS[Math.floor((blockId * 137.508) % ABCDE_COLORS.length)];
 }
 
 // ── Assets ─────────────────────────────────────────────────────────────────
@@ -243,6 +277,8 @@ function drawCell(
   highlight: boolean = false,
   alpha: number = 1,
   scale: number = 1,
+  blockWidth: number = 1,
+  cellIndex: number = 0,
 ): void {
   const actualSize = size * scale;
   const offset = (size - actualSize) / 2;
@@ -278,6 +314,24 @@ function drawCell(
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(ch, bx + actualSize / 2, by + actualSize / 2 + actualSize * 0.04);
+  } else if (skin === 'abcde') {
+    // Light cell background
+    ctx.fillStyle = '#fafafa';
+    ctx.fillRect(bx, by, actualSize, actualSize);
+    ctx.strokeStyle = '#e0e0e0';
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(bx, by, actualSize, actualSize);
+
+    // Word letter
+    const word = getAbcdeWord(blockId, blockWidth);
+    const letter = (word[cellIndex] || '').toUpperCase();
+    const color = getAbcdeColor(blockId);
+    const fontSize = Math.round(actualSize * 0.65);
+    ctx.font = `800 ${fontSize}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = color;
+    ctx.fillText(letter, bx + actualSize / 2, by + actualSize / 2 + actualSize * 0.03);
   } else {
     // Primitive skin
     const pad = actualSize * 0.04;
@@ -287,7 +341,7 @@ function drawCell(
   }
 
   if (highlight) {
-    if (skin === 'excel') {
+    if (skin === 'excel' || skin === 'abcde') {
       ctx.strokeStyle = '#1565C0';
       ctx.lineWidth = Math.max(2, size * 0.05);
       ctx.strokeRect(bx, by, actualSize, actualSize);
@@ -332,13 +386,36 @@ export function drawFrame(
 ): void {
   const { canvasW, canvasH, cellSize, scrollY } = state;
   const isExcel = skin === 'excel';
+  const isAbcde = skin === 'abcde';
+  const isLight = isExcel || isAbcde;
 
   ctx.clearRect(0, 0, canvasW * dpr, canvasH * dpr);
   ctx.save();
   ctx.scale(dpr, dpr);
 
   // ── Background ──
-  if (assets.bg && !isExcel) {
+  if (isAbcde) {
+    // Clean white background with subtle grid
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvasW, canvasH);
+    ctx.strokeStyle = '#e8e8e8';
+    ctx.lineWidth = 0.5;
+    for (let c = 1; c < COLS; c++) {
+      ctx.beginPath();
+      ctx.moveTo(c * cellSize, 0);
+      ctx.lineTo(c * cellSize, canvasH);
+      ctx.stroke();
+    }
+    const startRow = Math.floor(scrollY / cellSize);
+    const endRow = startRow + state.visibleRows + 2;
+    for (let r = startRow; r <= endRow + 1; r++) {
+      const sy = canvasH - r * cellSize + scrollY;
+      ctx.beginPath();
+      ctx.moveTo(0, sy);
+      ctx.lineTo(canvasW, sy);
+      ctx.stroke();
+    }
+  } else if (assets.bg && !isExcel) {
     ctx.drawImage(assets.bg, 0, 0, canvasW, canvasH);
   } else if (isExcel) {
     // White spreadsheet background
@@ -420,7 +497,7 @@ export function drawFrame(
     }
   }
 
-  if (!isExcel) {
+  if (!isLight) {
     // Grid lines (dark skins)
     ctx.strokeStyle = 'rgba(255,255,255,0.03)';
     ctx.lineWidth = 1;
@@ -453,7 +530,19 @@ export function drawFrame(
       const sy = baseY - fallOffset + anim.pushOffset;
       if (sy > canvasH + cellSize || sy < -cellSize) continue;
       const isSelected = cell.blockId === selectedBlockId;
-      drawCell(ctx, colToScreenX(state, c), sy, cellSize, cell.shade, cell.blockId, assets, skin, isSelected);
+
+      // Compute block width and cell index for ABCDE skin
+      let bw = 1, ci = 0;
+      if (isAbcde) {
+        let left = c;
+        while (left > 0 && state.grid[r][left - 1]?.blockId === cell.blockId) left--;
+        let right = c;
+        while (right < COLS - 1 && state.grid[r][right + 1]?.blockId === cell.blockId) right++;
+        bw = right - left + 1;
+        ci = c - left;
+      }
+
+      drawCell(ctx, colToScreenX(state, c), sy, cellSize, cell.shade, cell.blockId, assets, skin, isSelected, 1, 1, bw, ci);
     }
   }
 
@@ -470,7 +559,8 @@ export function drawFrame(
   }
 
   // ── Timer + hamburger ──
-  const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
+  const activeNow = Date.now() - state.lastActiveTimestamp;
+  const elapsed = Math.floor((state.accumulatedTime + activeNow) / 1000);
   const h = Math.floor(elapsed / 3600);
   const m = Math.floor((elapsed % 3600) / 60);
   const s = elapsed % 60;
@@ -516,6 +606,16 @@ export function drawFrame(
       w: canvasW,
       h: rowH,
     };
+  } else if (isAbcde) {
+    // ABCDE: clean dark text on white
+    const fontSize = Math.round(cellSize * 0.5);
+    const timerY = cellSize * 0.3;
+    ctx.font = `700 ${fontSize}px "Helvetica Neue", Helvetica, Arial, sans-serif`;
+    ctx.textBaseline = 'top';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillText(`${timeStr}  ≡`, canvasW / 2, timerY);
+    lastTimerHit = { x: 0, y: 0, w: canvasW, h: cellSize };
   } else {
     // Dark skins timer
     const fontSize = Math.round(cellSize * 0.8);
@@ -557,7 +657,7 @@ export function drawFrame(
     const menuY = lastTimerHit.y + lastTimerHit.h + 5;
 
     const menuH = menuItemH * SKIN_LIST.length + 8;
-    if (isExcel) {
+    if (isLight) {
       ctx.fillStyle = '#f0f0f0';
       ctx.strokeStyle = '#aaa';
     } else {
@@ -580,11 +680,11 @@ export function drawFrame(
       const itemY = menuY + 4 + i * menuItemH;
 
       if (sk === skin) {
-        ctx.fillStyle = isExcel ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.08)';
+        ctx.fillStyle = isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.08)';
         ctx.fillRect(menuX + 2, itemY, menuW - 4, menuItemH);
       }
 
-      if (isExcel) {
+      if (isLight) {
         ctx.fillStyle = sk === skin ? '#222' : '#666';
       } else {
         ctx.fillStyle = sk === skin ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.5)';

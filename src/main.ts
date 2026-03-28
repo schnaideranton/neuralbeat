@@ -1,8 +1,8 @@
 import {
   createState, resize, updateCamera,
-  screenToGrid, getBlockAt, tryMoveBlock, moveBlockToCol,
+  screenToGrid, getBlockAt, getBlockById, tryMoveBlock, moveBlockToCol,
   applyGravity, findAndClearRows, pushNewRow, getStackHeight,
-  rowToScreenY, colToScreenX,
+  rowToScreenY, colToScreenX, findAutoMove,
   GameState, BlockInfo, GravityMove, ClearedRow,
 } from './game';
 import {
@@ -27,6 +27,14 @@ const PUSH_SPEED_MULT = 4;
 
 let currentSkin: SkinType = 'primitive';
 let menuOpen = false;
+
+// ── Demo mode ────────────────────────────────────────────────────────────
+
+let demoMode = true;
+let demoMovesLeft = 3;
+let demoPhase: 'waiting' | 'moving' | 'animating' = 'waiting';
+let demoTimer = 0;
+let demoTarget: { blockId: number; toCol: number } | null = null;
 
 // ── Drag state ─────────────────────────────────────────────────────────────
 
@@ -170,6 +178,16 @@ async function init(): Promise<void> {
   state = createState(window.innerWidth, window.innerHeight);
   setupCanvas();
   setupInput();
+
+  // Pause timer when app is backgrounded
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      state.accumulatedTime += Date.now() - state.lastActiveTimestamp;
+    } else {
+      state.lastActiveTimestamp = Date.now();
+    }
+  });
+
   lastTime = performance.now();
   requestAnimationFrame(loop);
 }
@@ -180,6 +198,43 @@ function loop(now: number): void {
   const dt = Math.min((now - lastTime) / 1000, 0.05);
   lastTime = now;
   updateAnim(dt);
+
+  // ── Demo auto-play ──
+  if (demoMode && demoMovesLeft > 0) {
+    if (demoPhase === 'waiting' && animPhase === 'idle') {
+      demoTimer += dt;
+      if (demoTimer > 0.8) {
+        const move = findAutoMove(state);
+        if (move) {
+          demoTarget = { blockId: move.blockId, toCol: move.toCol };
+          demoPhase = 'moving';
+          demoTimer = 0;
+        } else {
+          demoMode = false;
+        }
+      }
+    } else if (demoPhase === 'moving' && demoTarget) {
+      demoTimer += dt;
+      if (demoTimer > 0.2) {
+        const block = getBlockById(state, demoTarget.blockId);
+        if (block && block.cols[0] !== demoTarget.toCol) {
+          const dir = demoTarget.toCol > block.cols[0] ? 1 : -1;
+          tryMoveBlock(state, demoTarget.blockId, dir);
+        } else {
+          startAnimChain();
+          demoPhase = 'animating';
+          demoMovesLeft--;
+          demoTarget = null;
+        }
+        demoTimer = 0;
+      }
+    } else if (demoPhase === 'animating' && animPhase === 'idle') {
+      demoPhase = 'waiting';
+      demoTimer = 0;
+      if (demoMovesLeft <= 0) demoMode = false;
+    }
+  }
+
   updateCamera(state);
 
   const blockYOffsets = new Map<number, number>();
@@ -240,6 +295,8 @@ function handleMenuTap(cx: number, cy: number): boolean {
 }
 
 function onPointerDown(x: number, y: number): void {
+  // Tap to skip demo
+  if (demoMode) { demoMode = false; demoMovesLeft = 0; return; }
   const rect = canvas.getBoundingClientRect();
   const cx = x - rect.left;
   const cy = y - rect.top;

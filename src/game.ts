@@ -14,7 +14,8 @@ export interface GameState {
   visibleRows: number;
   scrollY: number;
   targetScrollY: number;
-  startTime: number;
+  accumulatedTime: number;
+  lastActiveTimestamp: number;
   recentFills: number[];
 }
 
@@ -51,7 +52,8 @@ export function createState(viewW: number, viewH: number): GameState {
     visibleRows: d.visibleRows,
     scrollY: 0,
     targetScrollY: 0,
-    startTime: Date.now(),
+    accumulatedTime: 0,
+    lastActiveTimestamp: Date.now(),
     recentFills: [],
   };
   ensureGridSize(state);
@@ -101,7 +103,7 @@ export function getBlockAt(state: GameState, col: number, row: number): BlockInf
   return { id: cell.blockId, row, cols, shade: cell.shade };
 }
 
-function getBlockById(state: GameState, blockId: number): BlockInfo | null {
+export function getBlockById(state: GameState, blockId: number): BlockInfo | null {
   for (let r = 0; r < state.grid.length; r++) {
     for (let c = 0; c < COLS; c++) {
       if (state.grid[r][c]?.blockId === blockId) return getBlockAt(state, c, r);
@@ -228,8 +230,8 @@ export function pushNewRow(state: GameState): void {
 function generateRow(state: GameState, stackHeight: number): (Cell | null)[] {
   const row: (Cell | null)[] = new Array(COLS).fill(null);
 
-  // Always exactly 1 gap per row (7 of 8 cells filled)
-  const fillTarget = 7;
+  // Usually 1 gap, sometimes 2 gaps per row
+  const fillTarget = Math.random() < 0.25 ? 6 : 7;
 
   // Randomly place gaps across the row (not clustered to one side)
   const gapCount = COLS - fillTarget;
@@ -309,4 +311,54 @@ export function rowToScreenY(state: GameState, row: number): number {
 
 export function colToScreenX(state: GameState, col: number): number {
   return col * state.cellSize;
+}
+
+// ── Auto-play demo ────────────────────────────────────────────────────────
+
+export interface AutoMove {
+  blockId: number;
+  toCol: number;
+  row: number;
+}
+
+export function findAutoMove(state: GameState): AutoMove | null {
+  // Find a block in a higher row that can be moved horizontally
+  // so it drops down and fills a gap below.
+  // Strategy: find a gap, look at the column above it, find a block
+  // in the row above (same column) — if empty, look for a block in
+  // an adjacent column in the row above that can slide over.
+  for (let r = 0; r < state.grid.length; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (state.grid[r][c] !== null) continue; // not a gap
+      // Found a gap at (r, c). Look at row r+1 and above for a block
+      // that occupies column c — if none, check adjacent blocks that
+      // could slide into column c.
+      for (let above = r + 1; above < state.grid.length; above++) {
+        // Is there already a block above in this column? Skip up.
+        if (state.grid[above][c] !== null) break;
+        // Nothing above in this column — look for adjacent blocks
+        // in this row that could slide over
+        for (const dir of [-1, 1]) {
+          const adjCol = c + dir;
+          if (adjCol < 0 || adjCol >= COLS) continue;
+          const block = getBlockAt(state, adjCol, above);
+          if (block && block.cols.length === 1) {
+            return { blockId: block.id, toCol: c, row: above };
+          }
+        }
+        break; // only check the first empty row above
+      }
+    }
+  }
+  // Fallback: just move any single-cell block one step
+  for (let r = 0; r < state.grid.length; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const block = getBlockAt(state, c, r);
+      if (block && block.cols.length === 1) {
+        const target = c > 0 && !state.grid[r][c - 1] ? c - 1 : c < COLS - 1 && !state.grid[r][c + 1] ? c + 1 : -1;
+        if (target >= 0) return { blockId: block.id, toCol: target, row: r };
+      }
+    }
+  }
+  return null;
 }
