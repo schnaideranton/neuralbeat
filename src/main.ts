@@ -1,7 +1,7 @@
 import {
   createState, resize, updateCamera,
   screenToGrid, getBlockAt, tryMoveBlock, moveBlockToCol,
-  applyGravity, findAndClearRows, pushNewRow,
+  applyGravity, findAndClearRows, pushNewRow, getStackHeight,
   rowToScreenY, colToScreenX,
   GameState, BlockInfo, GravityMove, ClearedRow,
 } from './game';
@@ -13,6 +13,36 @@ const ctx = canvas.getContext('2d')!;
 let dpr = 1;
 let state: GameState;
 let assets: Assets;
+
+// ── Debug controls ────────────────────────────────────────────────────────
+
+let FALL_GRAVITY = 6000;
+let CLEAR_SPEED = 2;
+let PUSH_SPEED_MULT = 8;
+
+function setupDebug(): void {
+  const fallGrav = document.getElementById('fallGrav') as HTMLInputElement;
+  const fallGravVal = document.getElementById('fallGravVal') as HTMLSpanElement;
+  const clearSpd = document.getElementById('clearSpd') as HTMLInputElement;
+  const clearSpdVal = document.getElementById('clearSpdVal') as HTMLSpanElement;
+  const pushSpd = document.getElementById('pushSpd') as HTMLInputElement;
+  const pushSpdVal = document.getElementById('pushSpdVal') as HTMLSpanElement;
+
+  if (!fallGrav || !clearSpd || !pushSpd) return;
+
+  fallGrav.addEventListener('input', () => {
+    FALL_GRAVITY = Number(fallGrav.value);
+    fallGravVal.textContent = fallGrav.value;
+  });
+  clearSpd.addEventListener('input', () => {
+    CLEAR_SPEED = Number(clearSpd.value);
+    clearSpdVal.textContent = Number(clearSpd.value).toFixed(1);
+  });
+  pushSpd.addEventListener('input', () => {
+    PUSH_SPEED_MULT = Number(pushSpd.value);
+    pushSpdVal.textContent = pushSpd.value;
+  });
+}
 
 // ── Drag state ─────────────────────────────────────────────────────────────
 
@@ -43,6 +73,22 @@ let pushAnim = 0;
 
 // Timing
 let lastTime = 0;
+
+// ── Empty grid check ──────────────────────────────────────────────────────
+
+function checkEmptyGrid(): void {
+  if (animPhase !== 'idle') return;
+  if (getStackHeight(state) === 0) {
+    // Auto-push 3 rows when grid is completely empty
+    for (let i = 0; i < 3; i++) pushNewRow(state);
+    // Settle instantly
+    for (let i = 0; i < 20; i++) {
+      applyGravity(state);
+      const full = findAndClearRows(state);
+      if (full.length === 0) break;
+    }
+  }
+}
 
 // ── Animation chain ────────────────────────────────────────────────────────
 
@@ -90,6 +136,7 @@ function doClearStep(): void {
     doPushStep();
   } else {
     animPhase = 'idle';
+    checkEmptyGrid();
   }
 }
 
@@ -103,11 +150,10 @@ function doPushStep(): void {
 
 function updateAnim(dt: number): void {
   if (animPhase === 'falling') {
-    const GRAVITY = 6000; // px/s²
     let allDone = true;
     for (const f of falls) {
       if (f.offset <= 0) continue;
-      f.velocity += GRAVITY * dt;
+      f.velocity += FALL_GRAVITY * dt;
       f.offset -= f.velocity * dt;
       if (f.offset <= 0) {
         f.offset = 0;
@@ -120,15 +166,14 @@ function updateAnim(dt: number): void {
       doClearStep();
     }
   } else if (animPhase === 'clearing') {
-    const SPEED = 2; // life per second (~500ms)
     let allDone = true;
     for (const p of particles) {
       if (p.alpha <= 0) continue;
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       p.vy += 800 * dt; // gravity on particles
-      p.scale = Math.max(0, p.scale - SPEED * dt);
-      p.alpha = Math.max(0, p.alpha - SPEED * dt);
+      p.scale = Math.max(0, p.scale - CLEAR_SPEED * dt);
+      p.alpha = Math.max(0, p.alpha - CLEAR_SPEED * dt);
       if (p.alpha > 0) allDone = false;
     }
     if (allDone) {
@@ -136,7 +181,7 @@ function updateAnim(dt: number): void {
       doGravityStep(); // cascade: more gravity after clear
     }
   } else if (animPhase === 'pushing') {
-    const PUSH_SPEED = state.cellSize * 8; // px/s (~125ms)
+    const PUSH_SPEED = state.cellSize * PUSH_SPEED_MULT;
     pushAnim -= PUSH_SPEED * dt;
     if (pushAnim <= 0) {
       pushAnim = 0;
@@ -150,7 +195,9 @@ function updateAnim(dt: number): void {
 function setupCanvas(): void {
   dpr = window.devicePixelRatio || 1;
   const vw = window.innerWidth;
-  const vh = window.innerHeight;
+  const debugBar = document.getElementById('debug');
+  const debugH = debugBar ? debugBar.offsetHeight : 0;
+  const vh = window.innerHeight - debugH;
   if (state) resize(state, vw, vh);
   const w = state?.canvasW ?? Math.min(vw, Math.floor(vh * 0.52));
   canvas.width = w * dpr;
@@ -163,7 +210,11 @@ function setupCanvas(): void {
 
 async function init(): Promise<void> {
   assets = await loadAssets();
-  state = createState(window.innerWidth, window.innerHeight);
+  setupDebug();
+  const debugBar = document.getElementById('debug');
+  const debugH = debugBar ? debugBar.offsetHeight : 0;
+  const vh = window.innerHeight - debugH;
+  state = createState(window.innerWidth, vh);
   setupCanvas();
   setupInput();
   lastTime = performance.now();

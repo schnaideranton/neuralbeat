@@ -229,10 +229,10 @@ function generateRow(state: GameState, stackHeight: number): (Cell | null)[] {
   const row: (Cell | null)[] = new Array(COLS).fill(null);
 
   let minFill: number, maxFill: number;
-  if (stackHeight > 12) { minFill = 2; maxFill = 4; }
-  else if (stackHeight > 8) { minFill = 3; maxFill = 5; }
-  else if (stackHeight > 4) { minFill = 4; maxFill = 6; }
-  else { minFill = 5; maxFill = 7; }
+  if (stackHeight > 12) { minFill = 3; maxFill = 5; }
+  else if (stackHeight > 8) { minFill = 4; maxFill = 6; }
+  else if (stackHeight > 4) { minFill = 5; maxFill = 7; }
+  else { minFill = 6; maxFill = 7; }
 
   let fillTarget = minFill + Math.floor(Math.random() * (maxFill - minFill + 1));
 
