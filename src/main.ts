@@ -1,4 +1,8 @@
-import { createState, resize, updateCamera, moveActive, confirmPiece, GameState } from './game';
+import {
+  createState, resize, updateCamera,
+  screenToGrid, getBlockAt, tryMoveBlock, moveBlockToCol,
+  finalizeMove, GameState, BlockInfo,
+} from './game';
 import { loadAssets, drawFrame, Assets } from './render';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
@@ -8,16 +12,21 @@ let dpr = 1;
 let state: GameState;
 let assets: Assets;
 
-// ── Canvas Setup ───────────────────────────────────────────────────────────
+// ── Drag state ─────────────────────────────────────────────────────────────
+
+let dragBlock: BlockInfo | null = null;
+let dragStartX = 0;
+let dragOrigLeftCol = 0;
+let hasMoved = false;
+
+// ── Canvas setup ───────────────────────────────────────────────────────────
 
 function setupCanvas(): void {
   dpr = window.devicePixelRatio || 1;
   const vw = window.innerWidth;
   const vh = window.innerHeight;
-
   if (state) resize(state, vw, vh);
-
-  const w = state?.canvasW ?? vw;
+  const w = state?.canvasW ?? Math.min(vw, Math.floor(vh * 0.52));
   canvas.width = w * dpr;
   canvas.height = vh * dpr;
   canvas.style.width = w + 'px';
@@ -34,78 +43,151 @@ async function init(): Promise<void> {
   requestAnimationFrame(loop);
 }
 
-// ── Game Loop ──────────────────────────────────────────────────────────────
+// ── Loop ───────────────────────────────────────────────────────────────────
 
 function loop(): void {
   updateCamera(state);
-  drawFrame(ctx, state, assets, dpr, canvas);
+  drawFrame(ctx, state, assets, dpr, dragBlock?.id ?? null);
   requestAnimationFrame(loop);
 }
-
-// ── Resize ─────────────────────────────────────────────────────────────────
 
 window.addEventListener('resize', setupCanvas);
 
 // ── Input ──────────────────────────────────────────────────────────────────
 
-function setupInput(): void {
-  let touchX = 0;
-  let touchY = 0;
+function onPointerDown(x: number, y: number): void {
+  const rect = canvas.getBoundingClientRect();
+  const cx = x - rect.left;
+  const cy = y - rect.top;
+  const { col, row } = screenToGrid(state, cx, cy);
+  const block = getBlockAt(state, col, row);
 
+  if (block) {
+    dragBlock = block;
+    dragStartX = cx;
+    dragOrigLeftCol = block.cols[0];
+    hasMoved = false;
+  } else {
+    dragBlock = null;
+  }
+}
+
+function onPointerMove(x: number, y: number): void {
+  if (!dragBlock) return;
+  const rect = canvas.getBoundingClientRect();
+  const cx = x - rect.left;
+  const dx = cx - dragStartX;
+  const cellsMoved = Math.round(dx / state.cellSize);
+  const targetCol = dragOrigLeftCol + cellsMoved;
+
+  if (targetCol !== dragBlock.cols[0]) {
+    moveBlockToCol(state, dragBlock.id, targetCol);
+    // Refresh block info
+    const updated = getBlockAt(state, 0, 0); // dummy, need to re-find
+    // Re-find the block
+    for (let r = 0; r < state.grid.length; r++) {
+      for (let c = 0; c < 8; c++) {
+        const cell = state.grid[r][c];
+        if (cell && cell.blockId === dragBlock.id) {
+          dragBlock = getBlockAt(state, c, r);
+          hasMoved = true;
+          return;
+        }
+      }
+    }
+  }
+}
+
+function onPointerUp(): void {
+  if (dragBlock && hasMoved) {
+    finalizeMove(state);
+  }
+  dragBlock = null;
+  hasMoved = false;
+}
+
+function setupInput(): void {
+  // ── Touch ──
   canvas.addEventListener('touchstart', (e) => {
     e.preventDefault();
-    touchX = e.touches[0].clientX;
-    touchY = e.touches[0].clientY;
+    const t = e.touches[0];
+    onPointerDown(t.clientX, t.clientY);
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    const t = e.touches[0];
+    onPointerMove(t.clientX, t.clientY);
   }, { passive: false });
 
   canvas.addEventListener('touchend', (e) => {
     e.preventDefault();
-    const t = e.changedTouches[0];
-    const dx = t.clientX - touchX;
-    const dy = t.clientY - touchY;
-    const rect = canvas.getBoundingClientRect();
-    const x = t.clientX - rect.left;
-
-    if (Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy)) {
-      // Swipe horizontal → move
-      moveActive(state, dx > 0 ? 1 : -1);
-    } else if (dy > 40) {
-      // Swipe down → confirm
-      confirmPiece(state);
-    } else {
-      // Tap: left third → left, right third → right, middle → confirm
-      const third = state.canvasW / 3;
-      if (x < third) moveActive(state, -1);
-      else if (x > third * 2) moveActive(state, 1);
-      else confirmPiece(state);
-    }
+    onPointerUp();
   }, { passive: false });
 
-  // Mouse (desktop)
-  canvas.addEventListener('click', (e) => {
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const third = state.canvasW / 3;
-    if (x < third) moveActive(state, -1);
-    else if (x > third * 2) moveActive(state, 1);
-    else confirmPiece(state);
+  // ── Mouse ──
+  let mouseDown = false;
+  canvas.addEventListener('mousedown', (e) => {
+    mouseDown = true;
+    onPointerDown(e.clientX, e.clientY);
+  });
+  canvas.addEventListener('mousemove', (e) => {
+    if (mouseDown) onPointerMove(e.clientX, e.clientY);
+  });
+  canvas.addEventListener('mouseup', () => {
+    mouseDown = false;
+    onPointerUp();
   });
 
-  // Keyboard (desktop)
+  // ── Keyboard (desktop) ──
+  let kbSelectedBlockId: number | null = null;
+
   window.addEventListener('keydown', (e) => {
-    switch (e.key) {
-      case 'ArrowLeft':
-        moveActive(state, -1);
-        break;
-      case 'ArrowRight':
-        moveActive(state, 1);
-        break;
-      case ' ':
-      case 'ArrowDown':
-      case 'Enter':
-        e.preventDefault();
-        confirmPiece(state);
-        break;
+    // If no block selected via keyboard, select the bottom-left one
+    if (kbSelectedBlockId === null) {
+      for (let r = 0; r < state.grid.length; r++) {
+        for (let c = 0; c < 8; c++) {
+          const cell = state.grid[r][c];
+          if (cell) {
+            kbSelectedBlockId = cell.blockId;
+            dragBlock = getBlockAt(state, c, r);
+            return;
+          }
+        }
+      }
+      return;
+    }
+
+    if (e.key === 'ArrowLeft') {
+      if (tryMoveBlock(state, kbSelectedBlockId, -1)) hasMoved = true;
+    } else if (e.key === 'ArrowRight') {
+      if (tryMoveBlock(state, kbSelectedBlockId, 1)) hasMoved = true;
+    } else if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault();
+      if (hasMoved) {
+        finalizeMove(state);
+        hasMoved = false;
+      }
+      kbSelectedBlockId = null;
+      dragBlock = null;
+    } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      // Navigate to another block
+      const current = getBlockAt(state, 0, 0); // find current
+      // Find next block
+      let found = false;
+      const dir = e.key === 'ArrowUp' ? 1 : -1;
+      for (let r = 0; r < state.grid.length; r++) {
+        for (let c = 0; c < 8; c++) {
+          const cell = state.grid[r][c];
+          if (cell && cell.blockId !== kbSelectedBlockId) {
+            kbSelectedBlockId = cell.blockId;
+            dragBlock = getBlockAt(state, c, r);
+            found = true;
+            break;
+          }
+        }
+        if (found) break;
+      }
     }
   });
 }
