@@ -1,12 +1,12 @@
 export const COLS = 8;
 
 export interface Cell {
-  shade: number;    // 1-4 grayscale tone
-  blockId: number;  // groups cells into one movable block
+  shade: number;
+  blockId: number;
 }
 
 export interface GameState {
-  grid: (Cell | null)[][];  // grid[row][col], row 0 = bottom
+  grid: (Cell | null)[][];
   nextBlockId: number;
   cellSize: number;
   canvasW: number;
@@ -15,7 +15,20 @@ export interface GameState {
   scrollY: number;
   targetScrollY: number;
   startTime: number;
-  recentFills: number[];    // track recent row fill counts to avoid repetition
+  recentFills: number[];
+}
+
+// ── Animation data returned by game logic ──────────────────────────────────
+
+export interface GravityMove {
+  blockId: number;
+  fromRow: number;
+  toRow: number;
+}
+
+export interface ClearedRow {
+  row: number;
+  cells: { col: number; shade: number }[];
 }
 
 // ── Setup ──────────────────────────────────────────────────────────────────
@@ -42,9 +55,14 @@ export function createState(viewW: number, viewH: number): GameState {
     recentFills: [],
   };
   ensureGridSize(state);
-  // Start with 3 rows
   for (let i = 0; i < 3; i++) pushNewRow(state);
-  settle(state);
+  // Instant settle on init (no animation)
+  for (let i = 0; i < 20; i++) {
+    applyGravity(state);
+    const full = findFullRows(state);
+    if (full.length === 0) break;
+    clearRowsRaw(state, full);
+  }
   return state;
 }
 
@@ -78,8 +96,7 @@ export function getBlockAt(state: GameState, col: number, row: number): BlockInf
   if (!cell) return null;
   const cols: number[] = [];
   for (let c = 0; c < COLS; c++) {
-    const gc = state.grid[row][c];
-    if (gc && gc.blockId === cell.blockId) cols.push(c);
+    if (state.grid[row][c]?.blockId === cell.blockId) cols.push(c);
   }
   return { id: cell.blockId, row, cols, shade: cell.shade };
 }
@@ -87,8 +104,7 @@ export function getBlockAt(state: GameState, col: number, row: number): BlockInf
 function getBlockById(state: GameState, blockId: number): BlockInfo | null {
   for (let r = 0; r < state.grid.length; r++) {
     for (let c = 0; c < COLS; c++) {
-      const cell = state.grid[r][c];
-      if (cell && cell.blockId === blockId) return getBlockAt(state, c, r);
+      if (state.grid[r][c]?.blockId === blockId) return getBlockAt(state, c, r);
     }
   }
   return null;
@@ -99,19 +115,13 @@ function getBlockById(state: GameState, blockId: number): BlockInfo | null {
 export function tryMoveBlock(state: GameState, blockId: number, dir: number): boolean {
   const block = getBlockById(state, blockId);
   if (!block) return false;
-
   const newCols = block.cols.map(c => c + dir);
   if (newCols[0] < 0 || newCols[newCols.length - 1] >= COLS) return false;
-
-  // Collision check: only check cells that are NEW positions (not already part of this block)
   for (const nc of newCols) {
     if (!block.cols.includes(nc)) {
-      const cell = state.grid[block.row][nc];
-      if (cell !== null) return false;
+      if (state.grid[block.row][nc] !== null) return false;
     }
   }
-
-  // Execute move
   const cells = block.cols.map(c => state.grid[block.row][c]!);
   for (const c of block.cols) state.grid[block.row][c] = null;
   for (let i = 0; i < newCols.length; i++) state.grid[block.row][newCols[i]] = cells[i];
@@ -119,29 +129,18 @@ export function tryMoveBlock(state: GameState, blockId: number, dir: number): bo
 }
 
 export function moveBlockToCol(state: GameState, blockId: number, targetLeftCol: number): void {
-  for (let i = 0; i < COLS; i++) { // safety limit
+  for (let i = 0; i < COLS; i++) {
     const block = getBlockById(state, blockId);
     if (!block) break;
-    const currentCol = block.cols[0];
-    if (currentCol === targetLeftCol) break;
-    const dir = targetLeftCol > currentCol ? 1 : -1;
-    if (!tryMoveBlock(state, blockId, dir)) break;
+    if (block.cols[0] === targetLeftCol) break;
+    if (!tryMoveBlock(state, blockId, targetLeftCol > block.cols[0] ? 1 : -1)) break;
   }
 }
 
-// After the player releases the block
-export function finalizeMove(state: GameState): void {
-  settle(state);
-  pushNewRow(state);
-  settle(state);
-  ensureGridSize(state);
-}
+// ── Gravity (returns moves for animation) ──────────────────────────────────
 
-// ── Gravity ────────────────────────────────────────────────────────────────
-
-function applyGravity(state: GameState): boolean {
-  let moved = false;
-  // Collect unique blocks
+export function applyGravity(state: GameState): GravityMove[] {
+  const moves: GravityMove[] = [];
   const seen = new Set<number>();
   const blocks: { id: number; row: number; cols: number[] }[] = [];
 
@@ -159,75 +158,76 @@ function applyGravity(state: GameState): boolean {
     }
   }
 
-  // Sort bottom-first
   blocks.sort((a, b) => a.row - b.row);
 
   for (const block of blocks) {
-    let targetRow = block.row;
-    while (targetRow > 0) {
+    let target = block.row;
+    while (target > 0) {
       let canFall = true;
       for (const col of block.cols) {
-        const below = state.grid[targetRow - 1][col];
+        const below = state.grid[target - 1][col];
         if (below !== null && below.blockId !== block.id) {
           canFall = false;
           break;
         }
       }
       if (!canFall) break;
-      targetRow--;
+      target--;
     }
-    if (targetRow !== block.row) {
+    if (target !== block.row) {
       const cells = block.cols.map(c => state.grid[block.row][c]!);
       for (const c of block.cols) state.grid[block.row][c] = null;
       for (let i = 0; i < block.cols.length; i++) {
-        state.grid[targetRow][block.cols[i]] = cells[i];
+        state.grid[target][block.cols[i]] = cells[i];
       }
-      block.row = targetRow;
-      moved = true;
+      moves.push({ blockId: block.id, fromRow: block.row, toRow: target });
+      block.row = target;
     }
   }
-  return moved;
+  return moves;
 }
 
-// ── Row Clearing ───────────────────────────────────────────────────────────
+// ── Row clearing ───────────────────────────────────────────────────────────
 
-function clearFullRows(state: GameState): number {
-  let cleared = 0;
-  for (let r = state.grid.length - 1; r >= 0; r--) {
-    if (state.grid[r].every(c => c !== null)) {
-      state.grid.splice(r, 1);
-      cleared++;
-    }
+export function findFullRows(state: GameState): number[] {
+  const full: number[] = [];
+  for (let r = 0; r < state.grid.length; r++) {
+    if (state.grid[r].every(c => c !== null)) full.push(r);
   }
-  if (cleared > 0) ensureGridSize(state);
+  return full;
+}
+
+export function findAndClearRows(state: GameState): ClearedRow[] {
+  const fullRows = findFullRows(state);
+  if (fullRows.length === 0) return [];
+
+  const cleared: ClearedRow[] = fullRows.map(r => ({
+    row: r,
+    cells: state.grid[r].map((cell, c) => ({ col: c, shade: cell!.shade })),
+  }));
+
+  clearRowsRaw(state, fullRows);
   return cleared;
 }
 
-function settle(state: GameState): number {
-  let total = 0;
-  for (let i = 0; i < 50; i++) {
-    applyGravity(state);
-    const cleared = clearFullRows(state);
-    if (cleared === 0) break;
-    total += cleared;
+function clearRowsRaw(state: GameState, rows: number[]): void {
+  for (const r of [...rows].sort((a, b) => b - a)) {
+    state.grid.splice(r, 1);
   }
-  return total;
+  ensureGridSize(state);
 }
 
-// ── Row Generation (smart algorithm) ───────────────────────────────────────
+// ── Row generation ─────────────────────────────────────────────────────────
 
-function pushNewRow(state: GameState): void {
+export function pushNewRow(state: GameState): void {
   const stackH = getStackHeight(state);
-  const row = generateRow(state, stackH);
-  state.grid.unshift(row);
+  state.grid.unshift(generateRow(state, stackH));
+  ensureGridSize(state);
 }
 
 function generateRow(state: GameState, stackHeight: number): (Cell | null)[] {
   const row: (Cell | null)[] = new Array(COLS).fill(null);
 
-  // ── Adaptive difficulty ──
-  // When stack is tall → fewer filled cells (help the player)
-  // When stack is low → more filled cells (add pressure)
   let minFill: number, maxFill: number;
   if (stackHeight > 12) { minFill = 2; maxFill = 4; }
   else if (stackHeight > 8) { minFill = 3; maxFill = 5; }
@@ -236,7 +236,6 @@ function generateRow(state: GameState, stackHeight: number): (Cell | null)[] {
 
   let fillTarget = minFill + Math.floor(Math.random() * (maxFill - minFill + 1));
 
-  // Avoid repeating the same fill count 3 times in a row
   if (state.recentFills.length >= 2) {
     const last2 = state.recentFills.slice(-2);
     if (last2[0] === fillTarget && last2[1] === fillTarget) {
@@ -247,55 +246,21 @@ function generateRow(state: GameState, stackHeight: number): (Cell | null)[] {
   state.recentFills.push(fillTarget);
   if (state.recentFills.length > 10) state.recentFills.shift();
 
-  // ── Generate blocks ──
   let filled = 0;
   let pos = 0;
-
   while (pos < COLS && filled < fillTarget) {
     const remaining = COLS - pos;
     const need = fillTarget - filled;
-
-    // Gap? (not if we need all remaining space)
-    if (need < remaining && Math.random() < 0.3) {
-      pos++;
-      continue;
-    }
-
+    if (need < remaining && Math.random() < 0.3) { pos++; continue; }
     const maxW = Math.min(4, remaining, need);
     const width = 1 + Math.floor(Math.random() * maxW);
     const shade = 1 + Math.floor(Math.random() * 4);
-
     for (let i = 0; i < width; i++) {
       row[pos + i] = { shade, blockId: state.nextBlockId };
     }
     state.nextBlockId++;
     filled += width;
     pos += width;
-  }
-
-  // ── Fairness: try to align gaps with existing gaps above ──
-  // Look at the existing bottom row and try to place gaps that help
-  // the player complete rows (slight assistance)
-  if (state.grid.length > 0 && Math.random() < 0.3) {
-    const bottomRow = state.grid[0];
-    // Find columns that are empty in the bottom row
-    for (let c = 0; c < COLS; c++) {
-      if (bottomRow[c] === null && row[c] !== null && Math.random() < 0.2) {
-        // Sometimes clear this cell to align the gap
-        const cell = row[c];
-        if (cell) {
-          // Only remove if it doesn't orphan a block (remove entire block)
-          const bid = cell.blockId;
-          let blockCells = 0;
-          for (let cc = 0; cc < COLS; cc++) {
-            if (row[cc]?.blockId === bid) blockCells++;
-          }
-          if (blockCells === 1) {
-            row[c] = null;
-          }
-        }
-      }
-    }
   }
 
   return row;
@@ -320,7 +285,7 @@ export function updateCamera(state: GameState): void {
   }
 }
 
-// ── Coordinate conversion ──────────────────────────────────────────────────
+// ── Coords ─────────────────────────────────────────────────────────────────
 
 export function screenToGrid(
   state: GameState, sx: number, sy: number,

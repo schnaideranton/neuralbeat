@@ -2,7 +2,8 @@ import { GameState, COLS, rowToScreenY, colToScreenX } from './game';
 
 // ── roundRect polyfill ─────────────────────────────────────────────────────
 
-if (!CanvasRenderingContext2D.prototype.roundRect) {
+if (typeof CanvasRenderingContext2D !== 'undefined' &&
+    !CanvasRenderingContext2D.prototype.roundRect) {
   CanvasRenderingContext2D.prototype.roundRect = function (
     x: number, y: number, w: number, h: number, r: number | number[],
   ) {
@@ -19,18 +20,18 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
 // ── Grayscale palette ──────────────────────────────────────────────────────
 
 const SHADES = [
-  '',                                                  // 0 unused
-  { top: '#e0e0e0', bot: '#c8c8c8', border: '#b8b8b8' }, // 1 lightest
-  { top: '#b0b0b0', bot: '#989898', border: '#888888' }, // 2
-  { top: '#787878', bot: '#606060', border: '#505050' }, // 3
-  { top: '#4a4a4a', bot: '#333333', border: '#282828' }, // 4 darkest
+  null,
+  { top: '#e0e0e0', bot: '#c8c8c8', border: '#b8b8b8' },
+  { top: '#b0b0b0', bot: '#989898', border: '#888888' },
+  { top: '#787878', bot: '#606060', border: '#505050' },
+  { top: '#4a4a4a', bot: '#333333', border: '#282828' },
 ];
 
 // ── Assets ─────────────────────────────────────────────────────────────────
 
 export interface Assets {
   bg: HTMLImageElement | null;
-  cells: (HTMLImageElement | null)[];  // cell_1..cell_4
+  cells: (HTMLImageElement | null)[];
 }
 
 export async function loadAssets(): Promise<Assets> {
@@ -51,36 +52,63 @@ function tryLoad(src: string): Promise<HTMLImageElement | null> {
   });
 }
 
-// ── Drawing helpers ────────────────────────────────────────────────────────
+// ── Animation data ─────────────────────────────────────────────────────────
+
+export interface Particle {
+  x: number;
+  y: number;
+  shade: number;
+  scale: number;
+  alpha: number;
+  vx: number;
+  vy: number;
+}
+
+export interface AnimData {
+  blockYOffsets: Map<number, number>; // blockId → px above target
+  pushOffset: number;
+  particles: Particle[];
+}
+
+// ── Drawing ────────────────────────────────────────────────────────────────
 
 function drawCell(
   ctx: CanvasRenderingContext2D,
   x: number, y: number, size: number,
   shade: number, assets: Assets,
   highlight: boolean = false,
+  alpha: number = 1,
+  scale: number = 1,
 ): void {
   const pad = Math.max(1, size * 0.04);
-  const bx = x + pad, by = y + pad, bs = size - pad * 2;
+  const actualSize = size * scale;
+  const offset = (size - actualSize) / 2;
+  const bx = x + pad + offset;
+  const by = y + pad + offset;
+  const bs = actualSize - pad * 2;
+  if (bs <= 0) return;
   const rad = Math.max(2, bs * 0.1);
+
+  ctx.globalAlpha = alpha;
 
   const img = assets.cells[shade];
   if (img) {
     ctx.drawImage(img, bx, by, bs, bs);
   } else {
-    const s = typeof SHADES[shade] === 'object' ? SHADES[shade] : SHADES[1];
+    const s = SHADES[shade] || SHADES[1]!;
     const grad = ctx.createLinearGradient(bx, by, bx, by + bs);
-    grad.addColorStop(0, (s as any).top);
-    grad.addColorStop(1, (s as any).bot);
+    grad.addColorStop(0, s.top);
+    grad.addColorStop(1, s.bot);
 
     ctx.beginPath();
     ctx.roundRect(bx, by, bs, bs, rad);
     ctx.fillStyle = grad;
     ctx.fill();
-    ctx.strokeStyle = (s as any).border;
+    ctx.strokeStyle = s.border;
     ctx.lineWidth = Math.max(1, size * 0.025);
     ctx.stroke();
 
-    // Subtle shine
+    // Shine
     ctx.beginPath();
     ctx.roundRect(bx + bs * 0.1, by + bs * 0.06, bs * 0.35, bs * 0.15, rad * 0.4);
     ctx.fillStyle = 'rgba(255,255,255,0.15)';
@@ -94,6 +122,8 @@ function drawCell(
     ctx.lineWidth = Math.max(2, size * 0.05);
     ctx.stroke();
   }
+
+  ctx.globalAlpha = 1;
 }
 
 // ── Main draw ──────────────────────────────────────────────────────────────
@@ -104,6 +134,7 @@ export function drawFrame(
   assets: Assets,
   dpr: number,
   selectedBlockId: number | null,
+  anim: AnimData,
 ): void {
   const { canvasW, canvasH, cellSize, scrollY } = state;
 
@@ -115,11 +146,9 @@ export function drawFrame(
   if (assets.bg) {
     ctx.drawImage(assets.bg, 0, 0, canvasW, canvasH);
   } else {
-    // Dark checkerboard
     const cs = cellSize;
     ctx.fillStyle = '#151525';
     ctx.fillRect(0, 0, canvasW, canvasH);
-
     const startRow = Math.floor(scrollY / cs);
     const endRow = startRow + state.visibleRows + 2;
     ctx.fillStyle = '#1a1a30';
@@ -133,7 +162,7 @@ export function drawFrame(
     }
   }
 
-  // ── Grid lines (very subtle) ──
+  // ── Grid lines ──
   ctx.strokeStyle = 'rgba(255,255,255,0.02)';
   ctx.lineWidth = 1;
   for (let c = 1; c < COLS; c++) {
@@ -156,15 +185,31 @@ export function drawFrame(
 
   // ── Blocks ──
   for (let r = 0; r < state.grid.length; r++) {
-    const sy = rowToScreenY(state, r);
-    if (sy > canvasH + cellSize || sy < -cellSize) continue;
     for (let c = 0; c < COLS; c++) {
       const cell = state.grid[r][c];
-      if (cell) {
-        const isSelected = cell.blockId === selectedBlockId;
-        drawCell(ctx, colToScreenX(state, c), sy, cellSize, cell.shade, assets, isSelected);
-      }
+      if (!cell) continue;
+
+      const baseY = rowToScreenY(state, r);
+      const fallOffset = anim.blockYOffsets.get(cell.blockId) || 0;
+      const sy = baseY - fallOffset + anim.pushOffset;
+
+      if (sy > canvasH + cellSize || sy < -cellSize) continue;
+
+      const isSelected = cell.blockId === selectedBlockId;
+      drawCell(ctx, colToScreenX(state, c), sy, cellSize, cell.shade, assets, isSelected);
     }
+  }
+
+  // ── Particles (clearing animation) ──
+  for (const p of anim.particles) {
+    if (p.alpha <= 0 || p.scale <= 0) continue;
+    drawCell(
+      ctx,
+      p.x - cellSize * p.scale / 2,
+      p.y - cellSize * p.scale / 2 + anim.pushOffset,
+      cellSize, p.shade, assets,
+      false, p.alpha, p.scale,
+    );
   }
 
   // ── Timer ──
