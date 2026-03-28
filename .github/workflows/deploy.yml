@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: ['claude/create-guessing-game-JCFkH', 'main']
+    branches: ['main']
 
 permissions:
   contents: read
