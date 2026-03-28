@@ -5,7 +5,10 @@ import {
   rowToScreenY, colToScreenX,
   GameState, BlockInfo, GravityMove, ClearedRow,
 } from './game';
-import { loadAssets, drawFrame, Assets, Particle, AnimData } from './render';
+import {
+  loadAssets, drawFrame, Assets, Particle, AnimData,
+  SkinType, getTimerHitArea, getMenuHitArea,
+} from './render';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const ctx = canvas.getContext('2d')!;
@@ -20,6 +23,11 @@ const FALL_GRAVITY = 5500;
 const CLEAR_SPEED = 2;
 const PUSH_SPEED_MULT = 4;
 
+// ── Skin state ────────────────────────────────────────────────────────────
+
+let currentSkin: SkinType = 'primitive';
+let menuOpen = false;
+
 // ── Drag state ─────────────────────────────────────────────────────────────
 
 let dragBlock: BlockInfo | null = null;
@@ -33,21 +41,14 @@ type AnimPhase = 'idle' | 'falling' | 'clearing' | 'pushing';
 let animPhase: AnimPhase = 'idle';
 let needsPush = false;
 
-// Fall animation
 interface FallAnim {
   blockId: number;
-  offset: number;   // px above target (positive → 0)
-  velocity: number;  // px/s
+  offset: number;
+  velocity: number;
 }
 let falls: FallAnim[] = [];
-
-// Clear particles
 let particles: Particle[] = [];
-
-// Push offset (all blocks shift)
 let pushAnim = 0;
-
-// Timing
 let lastTime = 0;
 
 // ── Empty grid check ──────────────────────────────────────────────────────
@@ -55,9 +56,7 @@ let lastTime = 0;
 function checkEmptyGrid(): void {
   if (animPhase !== 'idle') return;
   if (getStackHeight(state) === 0) {
-    // Auto-push 3 rows when grid is completely empty
     for (let i = 0; i < 3; i++) pushNewRow(state);
-    // Settle instantly
     for (let i = 0; i < 20; i++) {
       applyGravity(state);
       const full = findAndClearRows(state);
@@ -97,10 +96,8 @@ function doClearStep(): void {
         particles.push({
           x: colToScreenX(state, cell.col) + cs / 2,
           y: rowToScreenY(state, row.row) + cs / 2,
-          blockId: cell.blockId,
-          shade: cell.shade,
-          scale: 1,
-          alpha: 1,
+          blockId: cell.blockId, shade: cell.shade,
+          scale: 1, alpha: 1,
           vx: (Math.random() - 0.5) * 300,
           vy: (Math.random() - 0.5) * 150 - 80,
         });
@@ -131,38 +128,24 @@ function updateAnim(dt: number): void {
       if (f.offset <= 0) continue;
       f.velocity += FALL_GRAVITY * dt;
       f.offset -= f.velocity * dt;
-      if (f.offset <= 0) {
-        f.offset = 0;
-      } else {
-        allDone = false;
-      }
+      if (f.offset <= 0) { f.offset = 0; } else { allDone = false; }
     }
-    if (allDone) {
-      falls = [];
-      doClearStep();
-    }
+    if (allDone) { falls = []; doClearStep(); }
   } else if (animPhase === 'clearing') {
     let allDone = true;
     for (const p of particles) {
       if (p.alpha <= 0) continue;
-      p.x += p.vx * dt;
-      p.y += p.vy * dt;
-      p.vy += 800 * dt; // gravity on particles
+      p.x += p.vx * dt; p.y += p.vy * dt;
+      p.vy += 800 * dt;
       p.scale = Math.max(0, p.scale - CLEAR_SPEED * dt);
       p.alpha = Math.max(0, p.alpha - CLEAR_SPEED * dt);
       if (p.alpha > 0) allDone = false;
     }
-    if (allDone) {
-      particles = [];
-      doGravityStep(); // cascade: more gravity after clear
-    }
+    if (allDone) { particles = []; doGravityStep(); }
   } else if (animPhase === 'pushing') {
     const PUSH_SPEED = state.cellSize * PUSH_SPEED_MULT;
     pushAnim -= PUSH_SPEED * dt;
-    if (pushAnim <= 0) {
-      pushAnim = 0;
-      doGravityStep(); // settle after push
-    }
+    if (pushAnim <= 0) { pushAnim = 0; doGravityStep(); }
   }
 }
 
@@ -194,9 +177,8 @@ async function init(): Promise<void> {
 // ── Loop ───────────────────────────────────────────────────────────────────
 
 function loop(now: number): void {
-  const dt = Math.min((now - lastTime) / 1000, 0.05); // cap at 50ms
+  const dt = Math.min((now - lastTime) / 1000, 0.05);
   lastTime = now;
-
   updateAnim(dt);
   updateCamera(state);
 
@@ -206,7 +188,7 @@ function loop(now: number): void {
   }
 
   const anim: AnimData = { blockYOffsets, pushOffset: pushAnim, particles };
-  drawFrame(ctx, state, assets, dpr, dragBlock?.id ?? null, anim);
+  drawFrame(ctx, state, assets, dpr, dragBlock?.id ?? null, anim, currentSkin, menuOpen);
   requestAnimationFrame(loop);
 }
 
@@ -227,11 +209,45 @@ function refreshDragBlock(): void {
   dragBlock = null;
 }
 
+function hitTest(cx: number, cy: number, area: { x: number; y: number; w: number; h: number }): boolean {
+  return cx >= area.x && cx <= area.x + area.w && cy >= area.y && cy <= area.y + area.h;
+}
+
+function handleMenuTap(cx: number, cy: number): boolean {
+  // If menu is open, check menu items first
+  if (menuOpen) {
+    const menuHit = getMenuHitArea();
+    for (const item of menuHit.items) {
+      if (hitTest(cx, cy, item)) {
+        currentSkin = item.skin;
+        menuOpen = false;
+        return true;
+      }
+    }
+    // Tap anywhere else closes menu
+    menuOpen = false;
+    return true;
+  }
+
+  // Check timer/hamburger hit area
+  const timerHit = getTimerHitArea();
+  if (hitTest(cx, cy, timerHit)) {
+    menuOpen = true;
+    return true;
+  }
+
+  return false;
+}
+
 function onPointerDown(x: number, y: number): void {
-  if (animPhase !== 'idle') return; // block input during animation
   const rect = canvas.getBoundingClientRect();
   const cx = x - rect.left;
   const cy = y - rect.top;
+
+  // Check menu/timer tap first
+  if (handleMenuTap(cx, cy)) return;
+
+  if (animPhase !== 'idle') return;
   const { col, row } = screenToGrid(state, cx, cy);
   const block = getBlockAt(state, col, row);
   if (block) {
@@ -297,7 +313,6 @@ function setupInput(): void {
     onPointerUp();
   });
 
-  // Keyboard
   window.addEventListener('keydown', (e) => {
     if (animPhase !== 'idle') return;
     if (e.key === 'ArrowLeft' && dragBlock) {

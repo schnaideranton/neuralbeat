@@ -17,36 +17,75 @@ if (typeof CanvasRenderingContext2D !== 'undefined' &&
   };
 }
 
-// ── Bauhaus palette (from reference image) ────────────────────────────────
+// ── Skin types ────────────────────────────────────────────────────────────
+
+export type SkinType = 'primitive' | 'emoji';
+
+export const SKIN_LABELS: Record<SkinType, string> = {
+  primitive: 'Примитив',
+  emoji: 'Эмоджи',
+};
+
+export const SKIN_LIST: SkinType[] = ['primitive', 'emoji'];
+
+// ── Bauhaus palette ───────────────────────────────────────────────────────
 
 const COLORS = [
-  '#E53935', // red
-  '#1E88E5', // blue
-  '#FDD835', // yellow
-  '#7B1FA2', // purple
-  '#F4511E', // orange-red
-  '#00ACC1', // cyan
-  '#F06292', // pink
-  '#FFFFFF', // white
-  '#9E9E9E', // gray
-  '#212121', // near-black
+  '#E53935', '#1E88E5', '#FDD835', '#7B1FA2', '#F4511E',
+  '#00ACC1', '#F06292', '#FFFFFF', '#9E9E9E', '#212121',
 ];
 
-// Shape types: 5 variants
 type ShapeType = 'sq-fill' | 'sq-stroke' | 'circle-fill' | 'circle-stroke' | 'x';
-
 const SHAPES: ShapeType[] = ['sq-fill', 'sq-stroke', 'circle-fill', 'circle-stroke', 'x'];
 
-interface BlockStyle {
-  color: string;
-  shape: ShapeType;
-}
+interface BlockStyle { color: string; shape: ShapeType; }
 
-// Deterministic style per blockId using golden angle scramble
 function getBlockStyle(blockId: number): BlockStyle {
   const colorIdx = Math.floor((blockId * 137.508) % COLORS.length);
   const shapeIdx = Math.floor((blockId * 73.137) % SHAPES.length);
   return { color: COLORS[colorIdx], shape: SHAPES[shapeIdx] };
+}
+
+// ── Emoji pool ────────────────────────────────────────────────────────────
+
+const EMOJI = [
+  '🍓','🍒','🍑','🍊','🍋','🍌','🍉','🍇','🍈','🍐','🍎','🍏','🥝','🥭','🍍',
+  '🥥','🫐','🍅','🌽','🥕','🥒','🌶️','🥑','🧄','🧅','🥦','🥬','🍄','🥜','🌰',
+  '🍞','🥐','🧀','🍕','🍔','🍟','🌭','🍿','🧂','🥚','🍳','🧈','🥞','🧇','🥓',
+  '🍗','🍖','🌮','🌯','🥙','🧆','🥘','🍝','🍜','🍲','🍛','🍣','🍱','🥟','🍤',
+  '🍙','🍚','🍘','🍥','🥮','🍡','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍩','🍪',
+  '🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵',
+  '🙈','🙉','🙊','🐔','🐧','🐦','🐤','🦆','🦅','🦉','🦇','🐺','🐗','🐴','🦄',
+  '🐝','🐛','🦋','🐌','🐞','🐜','🦟','🦗','🕷️','🐢','🐍','🦎','🦂','🐙','🦑',
+  '🦐','🐠','🐟','🐡','🐬','🦈','🐳','🐋','🐊','🐆','🐅','🦓','🦍','🦧','🐘',
+  '🦛','🦏','🐪','🐫','🦒','🦘','🦬','🐃','🦌','🐕','🐈','🐓','🦃','🦚','🦜',
+  '🦢','🦩','🕊️','🐇','🦝','🦨','🦡','🦫','🦦','🦥','🐁','🐀','🦔','🐉','🐲',
+  '😀','😂','🤣','😊','😇','🥰','😍','🤩','😘','😋','😛','🤪','😎','🤓','🧐',
+  '😏','😒','😞','😔','😟','😕','😫','😩','🥺','😢','😭','😤','😠','😡','🤬',
+  '😈','👿','💀','☠️','💩','🤡','👹','👺','👻','👽','🤖','🎃','😺','😸','😹',
+  '🌞','🌝','🌚','⭐','🌟','💫','✨','⚡','🔥','💥','❄️','🌊','💧','💦','🌈',
+  '🎵','🎶','🎸','🥁','🎺','🎷','🎹','🎻','🪗','🎤','🎧','📻','🔔','🔕','🎼',
+  '❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗',
+  '💖','💘','💝','💟','☮️','✝️','☪️','🕉️','☯️','✡️','🔯','🕎','☸️','⚛️','🛐',
+  '🏀','⚽','🏈','⚾','🥎','🎾','🏐','🏉','🥏','🎱','🪀','🏓','🏸','🏒','🥊',
+  '⛷️','🏂','🪂','🏋️','🤸','⛹️','🏊','🚴','🧘','🤺','🏇','🎯','🎳','🎮','🕹️',
+  '🚗','🚕','🚙','🏎️','🚓','🚑','🚒','🚐','🛻','🚚','🚛','🚜','🛵','🏍️','🚲',
+  '🚀','🛸','🛩️','✈️','🚁','⛵','🚢','🛶','🚂','🚃','🚄','🚅','🚆','🚇','🚈',
+  '🏠','🏡','🏢','🏣','🏥','🏦','🏨','🏩','🏪','🏫','🏬','🏭','🏯','🏰','💒',
+  '🗼','🗽','⛪','🕌','🛕','🕍','⛩️','🕋','⛲','⛺','🌁','🌃','🌉','🌋','🗻',
+  '🌵','🌲','🌳','🌴','🪵','🌱','🌿','☘️','🍀','🍁','🍂','🍃','🪺','🪸','🪻',
+  '🌷','🌹','🥀','🌺','🌸','🌼','🌻','💐','🪷','🌾','🎋','🎍','🎄','🎑','🎆',
+  '👀','👁️','👃','👂','👄','🦷','👅','🧠','🫀','🫁','🦴','👋','🤚','🖐️','✋',
+  '🤙','💪','🦾','🖕','✍️','🤳','💅','🦵','🦶','👣','👶','👦','👧','🧑','👱',
+  '🎩','🧢','👑','💍','👜','👛','👝','🎒','👓','🕶️','🥽','🧳','🌂','☂️','🧤',
+  '🔑','🗝️','🔨','🪓','⛏️','🔧','🪛','🔩','⚙️','🧲','🪜','🧰','🗜️','🔬','🔭',
+  '📡','💉','🩸','💊','🩹','🩺','🚪','🪞','🪟','🛏️','🛋️','🪑','🚽','🪠','🚿',
+  '🪥','🧴','🧷','🧹','🧺','🧻','🪣','🧯','🛒','🚬','⚰️','🪦','⚱️','🗿','🪬',
+];
+
+function getBlockEmoji(blockId: number): string {
+  const idx = Math.floor((blockId * 137.508) % EMOJI.length);
+  return EMOJI[idx];
 }
 
 // ── Assets ─────────────────────────────────────────────────────────────────
@@ -77,14 +116,8 @@ function tryLoad(src: string): Promise<HTMLImageElement | null> {
 // ── Animation data ─────────────────────────────────────────────────────────
 
 export interface Particle {
-  x: number;
-  y: number;
-  blockId: number;
-  shade: number;
-  scale: number;
-  alpha: number;
-  vx: number;
-  vy: number;
+  x: number; y: number; blockId: number; shade: number;
+  scale: number; alpha: number; vx: number; vy: number;
 }
 
 export interface AnimData {
@@ -93,16 +126,15 @@ export interface AnimData {
   particles: Particle[];
 }
 
-// ── Shape drawing ─────────────────────────────────────────────────────────
+// ── Shape drawing (primitive skin) ────────────────────────────────────────
 
 function drawShape(
   ctx: CanvasRenderingContext2D,
   cx: number, cy: number, size: number,
   style: BlockStyle,
 ): void {
-  const r = size * 0.38; // shape radius within cell
-  const strokeW = size * 0.12; // thick stroke for outlines and X
-
+  const r = size * 0.38;
+  const strokeW = size * 0.12;
   ctx.fillStyle = style.color;
   ctx.strokeStyle = style.color;
   ctx.lineWidth = strokeW;
@@ -111,13 +143,12 @@ function drawShape(
 
   switch (style.shape) {
     case 'sq-fill': {
-      const half = r;
-      ctx.fillRect(cx - half, cy - half, half * 2, half * 2);
+      ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
       break;
     }
     case 'sq-stroke': {
-      const half = r - strokeW / 2;
-      ctx.strokeRect(cx - half, cy - half, half * 2, half * 2);
+      const h = r - strokeW / 2;
+      ctx.strokeRect(cx - h, cy - h, h * 2, h * 2);
       break;
     }
     case 'circle-fill': {
@@ -135,10 +166,8 @@ function drawShape(
     case 'x': {
       const arm = r * 0.75;
       ctx.beginPath();
-      ctx.moveTo(cx - arm, cy - arm);
-      ctx.lineTo(cx + arm, cy + arm);
-      ctx.moveTo(cx + arm, cy - arm);
-      ctx.lineTo(cx - arm, cy + arm);
+      ctx.moveTo(cx - arm, cy - arm); ctx.lineTo(cx + arm, cy + arm);
+      ctx.moveTo(cx + arm, cy - arm); ctx.lineTo(cx - arm, cy + arm);
       ctx.stroke();
       break;
     }
@@ -151,6 +180,7 @@ function drawCell(
   ctx: CanvasRenderingContext2D,
   x: number, y: number, size: number,
   shade: number, blockId: number, assets: Assets,
+  skin: SkinType,
   highlight: boolean = false,
   alpha: number = 1,
   scale: number = 1,
@@ -166,16 +196,25 @@ function drawCell(
   const img = assets.cells[shade];
   if (img) {
     ctx.drawImage(img, bx, by, actualSize, actualSize);
-  } else {
-    const style = getBlockStyle(blockId);
+  } else if (skin === 'emoji') {
+    // Black cell background
+    const pad = actualSize * 0.03;
+    ctx.fillStyle = '#0d0d0d';
+    ctx.fillRect(bx + pad, by + pad, actualSize - pad * 2, actualSize - pad * 2);
 
-    // Dark cell background
+    // Draw emoji centered
+    const emoji = getBlockEmoji(blockId);
+    const fontSize = Math.round(actualSize * 0.72);
+    ctx.font = `${fontSize}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(emoji, bx + actualSize / 2, by + actualSize / 2 + actualSize * 0.04);
+  } else {
+    // Primitive skin
     const pad = actualSize * 0.04;
     ctx.fillStyle = '#1a1a1a';
     ctx.fillRect(bx + pad, by + pad, actualSize - pad * 2, actualSize - pad * 2);
-
-    // Draw shape centered in cell
-    drawShape(ctx, bx + actualSize / 2, by + actualSize / 2, actualSize, style);
+    drawShape(ctx, bx + actualSize / 2, by + actualSize / 2, actualSize, getBlockStyle(blockId));
   }
 
   if (highlight) {
@@ -188,6 +227,22 @@ function drawCell(
   ctx.globalAlpha = 1;
 }
 
+// ── Timer / menu hit area info ────────────────────────────────────────────
+
+export interface TimerHitArea {
+  x: number; y: number; w: number; h: number;
+}
+
+export interface MenuHitArea {
+  items: { x: number; y: number; w: number; h: number; skin: SkinType }[];
+}
+
+let lastTimerHit: TimerHitArea = { x: 0, y: 0, w: 0, h: 0 };
+let lastMenuHit: MenuHitArea = { items: [] };
+
+export function getTimerHitArea(): TimerHitArea { return lastTimerHit; }
+export function getMenuHitArea(): MenuHitArea { return lastMenuHit; }
+
 // ── Main draw ──────────────────────────────────────────────────────────────
 
 export function drawFrame(
@@ -197,6 +252,8 @@ export function drawFrame(
   dpr: number,
   selectedBlockId: number | null,
   anim: AnimData,
+  skin: SkinType,
+  menuOpen: boolean,
 ): void {
   const { canvasW, canvasH, cellSize, scrollY } = state;
 
@@ -204,7 +261,7 @@ export function drawFrame(
   ctx.save();
   ctx.scale(dpr, dpr);
 
-  // ── Background: dark with subtle black/dark-gray checkerboard ──
+  // ── Background ──
   if (assets.bg) {
     ctx.drawImage(assets.bg, 0, 0, canvasW, canvasH);
   } else {
@@ -250,31 +307,28 @@ export function drawFrame(
     for (let c = 0; c < COLS; c++) {
       const cell = state.grid[r][c];
       if (!cell) continue;
-
       const baseY = rowToScreenY(state, r);
       const fallOffset = anim.blockYOffsets.get(cell.blockId) || 0;
       const sy = baseY - fallOffset + anim.pushOffset;
-
       if (sy > canvasH + cellSize || sy < -cellSize) continue;
-
       const isSelected = cell.blockId === selectedBlockId;
-      drawCell(ctx, colToScreenX(state, c), sy, cellSize, cell.shade, cell.blockId, assets, isSelected);
+      drawCell(ctx, colToScreenX(state, c), sy, cellSize, cell.shade, cell.blockId, assets, skin, isSelected);
     }
   }
 
-  // ── Particles (clearing animation) ──
+  // ── Particles ──
   for (const p of anim.particles) {
     if (p.alpha <= 0 || p.scale <= 0) continue;
     drawCell(
       ctx,
       p.x - cellSize * p.scale / 2,
       p.y - cellSize * p.scale / 2 + anim.pushOffset,
-      cellSize, p.shade, p.blockId, assets,
+      cellSize, p.shade, p.blockId, assets, skin,
       false, p.alpha, p.scale,
     );
   }
 
-  // ── Timer ──
+  // ── Timer + hamburger ──
   const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
   const h = Math.floor(elapsed / 3600);
   const m = Math.floor((elapsed % 3600) / 60);
@@ -284,14 +338,85 @@ export function drawFrame(
     : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 
   const fontSize = Math.round(cellSize * 0.8);
-  const timerY = Math.round(cellSize * 0.6);
+  // Position at ~15th row from bottom so iPhone camera notch doesn't cover it
+  const timerY = Math.max(cellSize * 0.6, canvasH - cellSize * 15);
   ctx.font = `600 ${fontSize}px monospace`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
+
+  // Measure timer text
+  const timerMetrics = ctx.measureText(timeStr);
+  const timerTextW = timerMetrics.width;
+
+  // Hamburger icon (three horizontal bars using ≡)
+  const hamburgerStr = '≡';
+  const hamburgerGap = fontSize * 0.3;
+  const totalW = timerTextW + hamburgerGap + fontSize * 0.6;
+  const startX = canvasW / 2 - totalW / 2;
+  const timerCenterX = startX + timerTextW / 2;
+  const hamburgerX = startX + timerTextW + hamburgerGap;
+
+  // Shadow
   ctx.fillStyle = 'rgba(0,0,0,0.4)';
-  ctx.fillText(timeStr, canvasW / 2 + 1, timerY + 1);
+  ctx.textAlign = 'left';
+  ctx.fillText(timeStr, startX + 1, timerY + 1);
+  ctx.fillText(hamburgerStr, hamburgerX + 1, timerY + 1);
+
+  // Main text
   ctx.fillStyle = 'rgba(255,255,255,0.55)';
-  ctx.fillText(timeStr, canvasW / 2, timerY);
+  ctx.fillText(timeStr, startX, timerY);
+  ctx.fillText(hamburgerStr, hamburgerX, timerY);
+
+  // Store hit area for the whole timer+hamburger block
+  lastTimerHit = {
+    x: startX - 10,
+    y: timerY - 10,
+    w: totalW + 20,
+    h: fontSize + 20,
+  };
+
+  // ── Dropdown menu ──
+  if (menuOpen) {
+    const menuFontSize = Math.round(cellSize * 0.45);
+    const menuItemH = menuFontSize * 2;
+    const menuW = cellSize * 5;
+    const menuX = (canvasW - menuW) / 2;
+    const menuY = timerY + fontSize + 10;
+
+    // Background
+    ctx.fillStyle = 'rgba(0,0,0,0.9)';
+    ctx.beginPath();
+    ctx.roundRect(menuX, menuY, menuW, menuItemH * SKIN_LIST.length + 8, 8);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    lastMenuHit.items = [];
+    ctx.font = `500 ${menuFontSize}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    for (let i = 0; i < SKIN_LIST.length; i++) {
+      const s = SKIN_LIST[i];
+      const itemY = menuY + 4 + i * menuItemH;
+
+      // Highlight current skin
+      if (s === skin) {
+        ctx.fillStyle = 'rgba(255,255,255,0.08)';
+        ctx.fillRect(menuX + 2, itemY, menuW - 4, menuItemH);
+      }
+
+      ctx.fillStyle = s === skin ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.5)';
+      ctx.fillText(SKIN_LABELS[s], menuX + menuW / 2, itemY + menuItemH / 2);
+
+      lastMenuHit.items.push({
+        x: menuX, y: itemY, w: menuW, h: menuItemH, skin: s,
+      });
+    }
+  } else {
+    lastMenuHit.items = [];
+  }
 
   ctx.restore();
 }
