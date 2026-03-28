@@ -58,7 +58,6 @@ const EXCEL_COLORS = [
   '#A1887F', // brown/tan
   '#BBDEFB', // light blue
   '#F8BBD0', // pink
-  '#FFFFFF', // white
   '#D7CCC8', // light brown
   '#C8E6C9', // light green
   '#FFE0B2', // light peach
@@ -267,18 +266,6 @@ function drawCell(
     ctx.lineWidth = 0.5;
     ctx.strokeRect(bx, by, actualSize, actualSize);
 
-    // Random Excel text
-    const text = getExcelText(blockId);
-    if (text) {
-      const fontSize = Math.round(actualSize * 0.28);
-      ctx.font = `${fontSize}px "Segoe UI", Arial, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      // Dark text on light backgrounds, light on dark
-      const isDark = color === '#2E7D32' || color === '#4CAF50';
-      ctx.fillStyle = isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.45)';
-      ctx.fillText(text, bx + actualSize / 2, by + actualSize / 2, actualSize - 4);
-    }
   } else if (skin === 'emoji' || skin === 'flags') {
     // Black cell background
     const pad = actualSize * 0.03;

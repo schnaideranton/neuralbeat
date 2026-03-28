@@ -228,23 +228,8 @@ export function pushNewRow(state: GameState): void {
 function generateRow(state: GameState, stackHeight: number): (Cell | null)[] {
   const row: (Cell | null)[] = new Array(COLS).fill(null);
 
-  // Aggressive fill: keep screen ~80% full, always challenging
-  let minFill: number, maxFill: number;
-  if (stackHeight > 30) { minFill = 6; maxFill = 7; }
-  else if (stackHeight > 20) { minFill = 7; maxFill = 7; }
-  else { minFill = 7; maxFill = 8; }
-
-  let fillTarget = minFill + Math.floor(Math.random() * (maxFill - minFill + 1));
-
-  if (state.recentFills.length >= 2) {
-    const last2 = state.recentFills.slice(-2);
-    if (last2[0] === fillTarget && last2[1] === fillTarget) {
-      fillTarget = Math.max(minFill, Math.min(maxFill,
-        fillTarget + (Math.random() < 0.5 ? 1 : -1)));
-    }
-  }
-  state.recentFills.push(fillTarget);
-  if (state.recentFills.length > 10) state.recentFills.shift();
+  // Always exactly 1 gap per row (7 of 8 cells filled)
+  const fillTarget = 7;
 
   // Randomly place gaps across the row (not clustered to one side)
   const gapCount = COLS - fillTarget;
