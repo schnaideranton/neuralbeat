@@ -22,9 +22,9 @@ if (typeof CanvasRenderingContext2D !== 'undefined' &&
 export type SkinType = 'primitive' | 'emoji' | 'flags';
 
 export const SKIN_LABELS: Record<SkinType, string> = {
-  primitive: 'Примитив',
-  emoji: 'Эмоджи',
-  flags: 'Флаги',
+  primitive: 'Primitive',
+  emoji: 'Emoji',
+  flags: 'Flags',
 };
 
 export const SKIN_LIST: SkinType[] = ['primitive', 'emoji', 'flags'];

@@ -228,11 +228,11 @@ export function pushNewRow(state: GameState): void {
 function generateRow(state: GameState, stackHeight: number): (Cell | null)[] {
   const row: (Cell | null)[] = new Array(COLS).fill(null);
 
+  // Aggressive fill: keep screen ~80% full, always challenging
   let minFill: number, maxFill: number;
-  if (stackHeight > 12) { minFill = 3; maxFill = 5; }
-  else if (stackHeight > 8) { minFill = 4; maxFill = 6; }
-  else if (stackHeight > 4) { minFill = 5; maxFill = 7; }
-  else { minFill = 6; maxFill = 7; }
+  if (stackHeight > 25) { minFill = 5; maxFill = 6; }
+  else if (stackHeight > 18) { minFill = 6; maxFill = 7; }
+  else { minFill = 6; maxFill = 8; }
 
   let fillTarget = minFill + Math.floor(Math.random() * (maxFill - minFill + 1));
 
