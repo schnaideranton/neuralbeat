@@ -10,23 +10,9 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; overflow: hidden; background: #0a0a1a; }
     canvas { display: block; touch-action: none; margin: 0 auto; }
-    #debug {
-      position: fixed; top: 100px; left: 10px; right: 10px; z-index: 10;
-      background: rgba(0,0,0,0.85); color: #ccc; padding: 14px 16px;
-      font: 16px monospace; display: flex; flex-direction: column; gap: 14px;
-      border-radius: 12px;
-    }
-    #debug label { display: flex; align-items: center; gap: 8px; white-space: nowrap; font-size: 15px; }
-    #debug input[type=range] { flex: 1; height: 30px; min-width: 120px; }
-    #debug span { color: #6f6; min-width: 50px; font-size: 17px; }
   </style>
 </head>
 <body>
-  <div id="debug">
-    <label>Fall gravity: <input type="range" id="fallGrav" min="1000" max="15000" step="500" value="6000"><span id="fallGravVal">6000</span></label>
-    <label>Clear speed: <input type="range" id="clearSpd" min="0.5" max="6" step="0.25" value="2"><span id="clearSpdVal">2.0</span></label>
-    <label>Push speed: <input type="range" id="pushSpd" min="2" max="20" step="1" value="8"><span id="pushSpdVal">8</span></label>
-  </div>
   <canvas id="game"></canvas>
   <script type="module" src="/src/main.ts"></script>
 </body>

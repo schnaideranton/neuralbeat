@@ -19,16 +19,41 @@ if (typeof CanvasRenderingContext2D !== 'undefined' &&
 
 // ── Random vibrant colors from blockId ─────────────────────────────────────
 
+// Predefined palette: vibrant colors (no greens) + white, gray, black
+const PALETTE: { top: string; bot: string; border: string }[] = [
+  // Reds
+  { top: 'hsl(0,80%,60%)',   bot: 'hsl(0,80%,45%)',   border: 'hsl(0,70%,33%)' },
+  { top: 'hsl(10,85%,62%)',  bot: 'hsl(10,85%,48%)',  border: 'hsl(10,75%,36%)' },
+  // Oranges
+  { top: 'hsl(25,90%,58%)',  bot: 'hsl(25,90%,44%)',  border: 'hsl(25,80%,32%)' },
+  { top: 'hsl(38,88%,55%)',  bot: 'hsl(38,88%,42%)',  border: 'hsl(38,78%,30%)' },
+  // Yellows
+  { top: 'hsl(50,90%,58%)',  bot: 'hsl(50,90%,45%)',  border: 'hsl(50,80%,33%)' },
+  { top: 'hsl(60,85%,52%)',  bot: 'hsl(60,85%,40%)',  border: 'hsl(60,75%,28%)' },
+  // Blues
+  { top: 'hsl(210,80%,60%)', bot: 'hsl(210,80%,46%)', border: 'hsl(210,70%,34%)' },
+  { top: 'hsl(230,75%,58%)', bot: 'hsl(230,75%,44%)', border: 'hsl(230,65%,32%)' },
+  // Indigo / Violet
+  { top: 'hsl(260,70%,62%)', bot: 'hsl(260,70%,48%)', border: 'hsl(260,60%,36%)' },
+  { top: 'hsl(280,72%,58%)', bot: 'hsl(280,72%,44%)', border: 'hsl(280,62%,32%)' },
+  // Pinks / Magenta
+  { top: 'hsl(320,75%,60%)', bot: 'hsl(320,75%,46%)', border: 'hsl(320,65%,34%)' },
+  { top: 'hsl(340,80%,58%)', bot: 'hsl(340,80%,44%)', border: 'hsl(340,70%,32%)' },
+  // Cyan / Teal (not green)
+  { top: 'hsl(190,75%,52%)', bot: 'hsl(190,75%,40%)', border: 'hsl(190,65%,28%)' },
+  { top: 'hsl(200,78%,55%)', bot: 'hsl(200,78%,42%)', border: 'hsl(200,68%,30%)' },
+  // White
+  { top: 'hsl(0,0%,92%)',    bot: 'hsl(0,0%,78%)',    border: 'hsl(0,0%,65%)' },
+  // Gray
+  { top: 'hsl(0,0%,62%)',    bot: 'hsl(0,0%,48%)',    border: 'hsl(0,0%,36%)' },
+  // Dark / Black
+  { top: 'hsl(0,0%,35%)',    bot: 'hsl(0,0%,22%)',    border: 'hsl(0,0%,12%)' },
+];
+
 function blockColor(blockId: number): { top: string; bot: string; border: string } {
-  // Golden angle ensures consecutive blocks get very different hues
-  const hue = (blockId * 137.508) % 360;
-  const sat = 55 + ((blockId * 73) % 35);   // 55-90%
-  const lit = 45 + ((blockId * 53) % 20);   // 45-65%
-  return {
-    top: `hsl(${hue}, ${sat}%, ${lit + 12}%)`,
-    bot: `hsl(${hue}, ${sat}%, ${lit}%)`,
-    border: `hsl(${hue}, ${sat - 10}%, ${lit - 12}%)`,
-  };
+  // Golden angle scramble into palette to keep consecutive blocks different
+  const idx = Math.floor((blockId * 137.508) % PALETTE.length);
+  return PALETTE[idx];
 }
 
 // ── Assets ─────────────────────────────────────────────────────────────────
@@ -226,14 +251,15 @@ export function drawFrame(
     ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
     : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 
-  const fontSize = Math.round(cellSize * 0.38);
-  ctx.font = `${fontSize}px monospace`;
+  const fontSize = Math.round(cellSize * 0.8);
+  const timerY = Math.round(cellSize * 0.6); // safe area for iPhone notch
+  ctx.font = `600 ${fontSize}px monospace`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  ctx.fillText(timeStr, canvasW / 2 + 1, 11);
-  ctx.fillStyle = 'rgba(255,255,255,0.4)';
-  ctx.fillText(timeStr, canvasW / 2, 10);
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.fillText(timeStr, canvasW / 2 + 1, timerY + 1);
+  ctx.fillStyle = 'rgba(255,255,255,0.55)';
+  ctx.fillText(timeStr, canvasW / 2, timerY);
 
   ctx.restore();
 }

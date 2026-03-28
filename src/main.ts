@@ -14,35 +14,11 @@ let dpr = 1;
 let state: GameState;
 let assets: Assets;
 
-// ── Debug controls ────────────────────────────────────────────────────────
+// ── Animation constants ───────────────────────────────────────────────────
 
-let FALL_GRAVITY = 6000;
-let CLEAR_SPEED = 2;
-let PUSH_SPEED_MULT = 8;
-
-function setupDebug(): void {
-  const fallGrav = document.getElementById('fallGrav') as HTMLInputElement;
-  const fallGravVal = document.getElementById('fallGravVal') as HTMLSpanElement;
-  const clearSpd = document.getElementById('clearSpd') as HTMLInputElement;
-  const clearSpdVal = document.getElementById('clearSpdVal') as HTMLSpanElement;
-  const pushSpd = document.getElementById('pushSpd') as HTMLInputElement;
-  const pushSpdVal = document.getElementById('pushSpdVal') as HTMLSpanElement;
-
-  if (!fallGrav || !clearSpd || !pushSpd) return;
-
-  fallGrav.addEventListener('input', () => {
-    FALL_GRAVITY = Number(fallGrav.value);
-    fallGravVal.textContent = fallGrav.value;
-  });
-  clearSpd.addEventListener('input', () => {
-    CLEAR_SPEED = Number(clearSpd.value);
-    clearSpdVal.textContent = Number(clearSpd.value).toFixed(1);
-  });
-  pushSpd.addEventListener('input', () => {
-    PUSH_SPEED_MULT = Number(pushSpd.value);
-    pushSpdVal.textContent = pushSpd.value;
-  });
-}
+const FALL_GRAVITY = 5500;
+const CLEAR_SPEED = 2;
+const PUSH_SPEED_MULT = 4;
 
 // ── Drag state ─────────────────────────────────────────────────────────────
 
@@ -208,7 +184,6 @@ function setupCanvas(): void {
 
 async function init(): Promise<void> {
   assets = await loadAssets();
-  setupDebug();
   state = createState(window.innerWidth, window.innerHeight);
   setupCanvas();
   setupInput();
