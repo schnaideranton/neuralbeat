@@ -75,6 +75,7 @@ function doClearStep(): void {
         particles.push({
           x: colToScreenX(state, cell.col) + cs / 2,
           y: rowToScreenY(state, row.row) + cs / 2,
+          blockId: cell.blockId,
           shade: cell.shade,
           scale: 1,
           alpha: 1,
@@ -119,7 +120,7 @@ function updateAnim(dt: number): void {
       doClearStep();
     }
   } else if (animPhase === 'clearing') {
-    const SPEED = 4; // life per second (~250ms)
+    const SPEED = 2; // life per second (~500ms)
     let allDone = true;
     for (const p of particles) {
       if (p.alpha <= 0) continue;

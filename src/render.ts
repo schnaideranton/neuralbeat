@@ -17,15 +17,19 @@ if (typeof CanvasRenderingContext2D !== 'undefined' &&
   };
 }
 
-// ── Grayscale palette ──────────────────────────────────────────────────────
+// ── Random vibrant colors from blockId ─────────────────────────────────────
 
-const SHADES = [
-  null,
-  { top: '#e0e0e0', bot: '#c8c8c8', border: '#b8b8b8' },
-  { top: '#b0b0b0', bot: '#989898', border: '#888888' },
-  { top: '#787878', bot: '#606060', border: '#505050' },
-  { top: '#4a4a4a', bot: '#333333', border: '#282828' },
-];
+function blockColor(blockId: number): { top: string; bot: string; border: string } {
+  // Golden angle ensures consecutive blocks get very different hues
+  const hue = (blockId * 137.508) % 360;
+  const sat = 55 + ((blockId * 73) % 35);   // 55-90%
+  const lit = 45 + ((blockId * 53) % 20);   // 45-65%
+  return {
+    top: `hsl(${hue}, ${sat}%, ${lit + 12}%)`,
+    bot: `hsl(${hue}, ${sat}%, ${lit}%)`,
+    border: `hsl(${hue}, ${sat - 10}%, ${lit - 12}%)`,
+  };
+}
 
 // ── Assets ─────────────────────────────────────────────────────────────────
 
@@ -57,6 +61,7 @@ function tryLoad(src: string): Promise<HTMLImageElement | null> {
 export interface Particle {
   x: number;
   y: number;
+  blockId: number;
   shade: number;
   scale: number;
   alpha: number;
@@ -75,7 +80,7 @@ export interface AnimData {
 function drawCell(
   ctx: CanvasRenderingContext2D,
   x: number, y: number, size: number,
-  shade: number, assets: Assets,
+  shade: number, blockId: number, assets: Assets,
   highlight: boolean = false,
   alpha: number = 1,
   scale: number = 1,
@@ -95,7 +100,7 @@ function drawCell(
   if (img) {
     ctx.drawImage(img, bx, by, bs, bs);
   } else {
-    const s = SHADES[shade] || SHADES[1]!;
+    const s = blockColor(blockId);
     const grad = ctx.createLinearGradient(bx, by, bx, by + bs);
     grad.addColorStop(0, s.top);
     grad.addColorStop(1, s.bot);
@@ -196,7 +201,7 @@ export function drawFrame(
       if (sy > canvasH + cellSize || sy < -cellSize) continue;
 
       const isSelected = cell.blockId === selectedBlockId;
-      drawCell(ctx, colToScreenX(state, c), sy, cellSize, cell.shade, assets, isSelected);
+      drawCell(ctx, colToScreenX(state, c), sy, cellSize, cell.shade, cell.blockId, assets, isSelected);
     }
   }
 
@@ -207,7 +212,7 @@ export function drawFrame(
       ctx,
       p.x - cellSize * p.scale / 2,
       p.y - cellSize * p.scale / 2 + anim.pushOffset,
-      cellSize, p.shade, assets,
+      cellSize, p.shade, p.blockId, assets,
       false, p.alpha, p.scale,
     );
   }

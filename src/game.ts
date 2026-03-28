@@ -28,7 +28,7 @@ export interface GravityMove {
 
 export interface ClearedRow {
   row: number;
-  cells: { col: number; shade: number }[];
+  cells: { col: number; shade: number; blockId: number }[];
 }
 
 // ── Setup ──────────────────────────────────────────────────────────────────
@@ -203,7 +203,7 @@ export function findAndClearRows(state: GameState): ClearedRow[] {
 
   const cleared: ClearedRow[] = fullRows.map(r => ({
     row: r,
-    cells: state.grid[r].map((cell, c) => ({ col: c, shade: cell!.shade })),
+    cells: state.grid[r].map((cell, c) => ({ col: c, shade: cell!.shade, blockId: cell!.blockId })),
   }));
 
   clearRowsRaw(state, fullRows);
@@ -246,24 +246,47 @@ function generateRow(state: GameState, stackHeight: number): (Cell | null)[] {
   state.recentFills.push(fillTarget);
   if (state.recentFills.length > 10) state.recentFills.shift();
 
-  let filled = 0;
+  // Randomly place gaps across the row (not clustered to one side)
+  const gapCount = COLS - fillTarget;
+  const positions = [0, 1, 2, 3, 4, 5, 6, 7];
+  for (let i = positions.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [positions[i], positions[j]] = [positions[j], positions[i]];
+  }
+  const gapSet = new Set(positions.slice(0, gapCount));
+
+  // Fill non-gap stretches with blocks (biased toward wider pieces)
   let pos = 0;
-  while (pos < COLS && filled < fillTarget) {
-    const remaining = COLS - pos;
-    const need = fillTarget - filled;
-    if (need < remaining && Math.random() < 0.3) { pos++; continue; }
-    const maxW = Math.min(4, remaining, need);
-    const width = 1 + Math.floor(Math.random() * maxW);
-    const shade = 1 + Math.floor(Math.random() * 4);
-    for (let i = 0; i < width; i++) {
-      row[pos + i] = { shade, blockId: state.nextBlockId };
+  while (pos < COLS) {
+    if (gapSet.has(pos)) { pos++; continue; }
+    let end = pos;
+    while (end < COLS && !gapSet.has(end)) end++;
+    let rp = pos;
+    while (rp < end) {
+      const avail = end - rp;
+      const width = pickWidth(avail);
+      const shade = 1 + Math.floor(Math.random() * 4);
+      for (let i = 0; i < width; i++) {
+        row[rp + i] = { shade, blockId: state.nextBlockId };
+      }
+      state.nextBlockId++;
+      rp += width;
     }
-    state.nextBlockId++;
-    filled += width;
-    pos += width;
+    pos = end;
   }
 
   return row;
+}
+
+// Weighted random width: bias toward 2-3, fewer tiny 1s
+function pickWidth(maxAvail: number): number {
+  const max = Math.min(4, maxAvail);
+  if (max === 1) return 1;
+  const r = Math.random();
+  if (max >= 4 && r < 0.15) return 4;
+  if (max >= 3 && r < 0.50) return 3;
+  if (max >= 2 && r < 0.85) return 2;
+  return 1;
 }
 
 // ── Camera ─────────────────────────────────────────────────────────────────
