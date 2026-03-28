@@ -19,14 +19,15 @@ if (typeof CanvasRenderingContext2D !== 'undefined' &&
 
 // ── Skin types ────────────────────────────────────────────────────────────
 
-export type SkinType = 'primitive' | 'emoji';
+export type SkinType = 'primitive' | 'emoji' | 'flags';
 
 export const SKIN_LABELS: Record<SkinType, string> = {
   primitive: 'Примитив',
   emoji: 'Эмоджи',
+  flags: 'Флаги',
 };
 
-export const SKIN_LIST: SkinType[] = ['primitive', 'emoji'];
+export const SKIN_LIST: SkinType[] = ['primitive', 'emoji', 'flags'];
 
 // ── Bauhaus palette ───────────────────────────────────────────────────────
 
@@ -86,6 +87,30 @@ const EMOJI = [
 function getBlockEmoji(blockId: number): string {
   const idx = Math.floor((blockId * 137.508) % EMOJI.length);
   return EMOJI[idx];
+}
+
+// ── Flag emoji pool ───────────────────────────────────────────────────────
+
+const FLAGS = [
+  '🏴‍☠️','🏳️‍🌈','🏳️‍⚧️','🇦🇫','🇦🇱','🇩🇿','🇦🇸','🇦🇩','🇦🇴','🇦🇮','🇦🇬','🇦🇷','🇦🇲','🇦🇼','🇦🇺',
+  '🇦🇹','🇦🇿','🇧🇸','🇧🇭','🇧🇩','🇧🇧','🇧🇾','🇧🇪','🇧🇿','🇧🇯','🇧🇲','🇧🇹','🇧🇴','🇧🇦','🇧🇼',
+  '🇧🇷','🇧🇳','🇧🇬','🇧🇫','🇧🇮','🇰🇭','🇨🇲','🇨🇦','🇨🇻','🇨🇫','🇹🇩','🇨🇱','🇨🇳','🇨🇴','🇰🇲',
+  '🇨🇬','🇨🇩','🇨🇷','🇨🇮','🇭🇷','🇨🇺','🇨🇾','🇨🇿','🇩🇰','🇩🇯','🇩🇲','🇩🇴','🇪🇨','🇪🇬','🇸🇻',
+  '🇬🇶','🇪🇷','🇪🇪','🇸🇿','🇪🇹','🇫🇯','🇫🇮','🇫🇷','🇬🇦','🇬🇲','🇬🇪','🇩🇪','🇬🇭','🇬🇷','🇬🇩',
+  '🇬🇹','🇬🇳','🇬🇼','🇬🇾','🇭🇹','🇭🇳','🇭🇰','🇭🇺','🇮🇸','🇮🇳','🇮🇩','🇮🇷','🇮🇶','🇮🇪','🇮🇱',
+  '🇮🇹','🇯🇲','🇯🇵','🇯🇴','🇰🇿','🇰🇪','🇰🇮','🇰🇵','🇰🇷','🇰🇼','🇰🇬','🇱🇦','🇱🇻','🇱🇧','🇱🇸',
+  '🇱🇷','🇱🇾','🇱🇮','🇱🇹','🇱🇺','🇲🇴','🇲🇬','🇲🇼','🇲🇾','🇲🇻','🇲🇱','🇲🇹','🇲🇭','🇲🇷','🇲🇺',
+  '🇲🇽','🇫🇲','🇲🇩','🇲🇨','🇲🇳','🇲🇪','🇲🇦','🇲🇿','🇲🇲','🇳🇦','🇳🇷','🇳🇵','🇳🇱','🇳🇿','🇳🇮',
+  '🇳🇪','🇳🇬','🇲🇰','🇳🇴','🇴🇲','🇵🇰','🇵🇼','🇵🇸','🇵🇦','🇵🇬','🇵🇾','🇵🇪','🇵🇭','🇵🇱','🇵🇹',
+  '🇶🇦','🇷🇴','🇷🇺','🇷🇼','🇼🇸','🇸🇲','🇸🇦','🇸🇳','🇷🇸','🇸🇨','🇸🇱','🇸🇬','🇸🇰','🇸🇮','🇸🇧',
+  '🇸🇴','🇿🇦','🇪🇸','🇱🇰','🇸🇩','🇸🇷','🇸🇪','🇨🇭','🇸🇾','🇹🇼','🇹🇯','🇹🇿','🇹🇭','🇹🇱','🇹🇬',
+  '🇹🇴','🇹🇹','🇹🇳','🇹🇷','🇹🇲','🇹🇻','🇺🇬','🇺🇦','🇦🇪','🇬🇧','🇺🇸','🇺🇾','🇺🇿','🇻🇺','🇻🇪',
+  '🇻🇳','🇾🇪','🇿🇲','🇿🇼','🏴󠁧󠁢󠁥󠁮󠁧󠁿','🏴󠁧󠁢󠁳󠁣󠁴󠁿','🏴󠁧󠁢󠁷󠁬󠁳󠁿','🎌','🏁','🚩','🏴',
+];
+
+function getBlockFlag(blockId: number): string {
+  const idx = Math.floor((blockId * 137.508) % FLAGS.length);
+  return FLAGS[idx];
 }
 
 // ── Assets ─────────────────────────────────────────────────────────────────
@@ -196,19 +221,19 @@ function drawCell(
   const img = assets.cells[shade];
   if (img) {
     ctx.drawImage(img, bx, by, actualSize, actualSize);
-  } else if (skin === 'emoji') {
+  } else if (skin === 'emoji' || skin === 'flags') {
     // Black cell background
     const pad = actualSize * 0.03;
     ctx.fillStyle = '#0d0d0d';
     ctx.fillRect(bx + pad, by + pad, actualSize - pad * 2, actualSize - pad * 2);
 
-    // Draw emoji centered
-    const emoji = getBlockEmoji(blockId);
+    // Draw emoji/flag centered
+    const ch = skin === 'flags' ? getBlockFlag(blockId) : getBlockEmoji(blockId);
     const fontSize = Math.round(actualSize * 0.72);
     ctx.font = `${fontSize}px serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(emoji, bx + actualSize / 2, by + actualSize / 2 + actualSize * 0.04);
+    ctx.fillText(ch, bx + actualSize / 2, by + actualSize / 2 + actualSize * 0.04);
   } else {
     // Primitive skin
     const pad = actualSize * 0.04;
