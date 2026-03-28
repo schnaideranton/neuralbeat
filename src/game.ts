@@ -1,253 +1,135 @@
-// ── Types ──────────────────────────────────────────────────────────────────
+export const COLS = 8;
 
-export interface Piece {
-  cells: [number, number][]; // [col, row] offsets from origin
-  type: number;              // block type 1-7
-}
-
-export interface DragState {
-  pieceIndex: number;
-  gridCol: number;
-  gridRow: number;
-  screenX: number;
-  screenY: number;
-  valid: boolean;
+export interface ActivePiece {
+  col: number;
+  width: number;
+  type: number;
 }
 
 export interface GameState {
-  grid: Map<string, number>;
-  cols: number;
-  tray: (Piece | null)[];
-  dragging: DragState | null;
-  cameraY: number;
-  targetCameraY: number;
-  startTime: number;
+  grid: number[][];       // grid[row][col], row 0 = bottom. 0=empty, 1-7=type
+  active: ActivePiece;
   cellSize: number;
-  trayHeight: number;
-  gridAreaHeight: number;
   visibleRows: number;
-  canvasWidth: number;
-  canvasHeight: number;
+  canvasW: number;
+  canvasH: number;
+  activeAreaH: number;
+  gridAreaH: number;
+  scrollY: number;
+  targetScrollY: number;
+  startTime: number;
 }
 
-// ── Piece Definitions ──────────────────────────────────────────────────────
+// ── Dimensions ─────────────────────────────────────────────────────────────
 
-const SHAPES: [number, number][][] = [
-  // Single
-  [[0,0]],
-  // Dominoes
-  [[0,0],[1,0]],
-  [[0,0],[0,1]],
-  // Triominoes
-  [[0,0],[1,0],[2,0]],
-  [[0,0],[0,1],[0,2]],
-  [[0,0],[1,0],[0,1]],
-  [[0,0],[1,0],[1,1]],
-  [[0,0],[0,1],[1,1]],
-  [[1,0],[0,1],[1,1]],
-  // Tetrominoes
-  [[0,0],[1,0],[2,0],[3,0]],
-  [[0,0],[0,1],[0,2],[0,3]],
-  [[0,0],[1,0],[2,0],[1,1]],      // T
-  [[0,0],[1,0],[2,0],[2,1]],      // L
-  [[0,0],[1,0],[2,0],[0,1]],      // J
-  [[0,0],[1,0],[1,1],[2,1]],      // S
-  [[1,0],[2,0],[0,1],[1,1]],      // Z
-  [[0,0],[1,0],[0,1],[1,1]],      // O
-  // Pentominoes (line)
-  [[0,0],[1,0],[2,0],[3,0],[4,0]],
-  [[0,0],[0,1],[0,2],[0,3],[0,4]],
-];
-
-// ── Helpers ────────────────────────────────────────────────────────────────
-
-function key(c: number, r: number): string {
-  return `${c},${r}`;
+function calcDimensions(viewW: number, viewH: number) {
+  // Phone-like aspect ratio on desktop, full width on mobile
+  const canvasW = Math.min(viewW, Math.floor(viewH * 0.52));
+  const cellSize = canvasW / COLS;
+  const activeAreaH = cellSize * 2;
+  const gridAreaH = viewH - activeAreaH;
+  const visibleRows = Math.floor(gridAreaH / cellSize);
+  return { canvasW, cellSize, activeAreaH, gridAreaH, visibleRows };
 }
 
-function randInt(max: number): number {
-  return Math.floor(Math.random() * max);
+export function createState(viewW: number, viewH: number): GameState {
+  const d = calcDimensions(viewW, viewH);
+  return {
+    grid: [],
+    active: randomPiece(),
+    cellSize: d.cellSize,
+    visibleRows: d.visibleRows,
+    canvasW: d.canvasW,
+    canvasH: viewH,
+    activeAreaH: d.activeAreaH,
+    gridAreaH: d.gridAreaH,
+    scrollY: 0,
+    targetScrollY: 0,
+    startTime: Date.now(),
+  };
 }
 
-export function getMaxRow(state: GameState): number {
-  let max = -1;
-  for (const k of state.grid.keys()) {
-    const row = parseInt(k.split(',')[1]);
-    if (row > max) max = row;
-  }
-  return max;
+export function resize(state: GameState, viewW: number, viewH: number): void {
+  const d = calcDimensions(viewW, viewH);
+  state.canvasW = d.canvasW;
+  state.canvasH = viewH;
+  state.cellSize = d.cellSize;
+  state.activeAreaH = d.activeAreaH;
+  state.gridAreaH = d.gridAreaH;
+  state.visibleRows = d.visibleRows;
 }
 
-export function getPieceBounds(piece: Piece): { w: number; h: number } {
-  let maxC = 0, maxR = 0;
-  for (const [c, r] of piece.cells) {
-    if (c > maxC) maxC = c;
-    if (r > maxR) maxR = r;
-  }
-  return { w: maxC + 1, h: maxR + 1 };
+// ── Pieces ─────────────────────────────────────────────────────────────────
+
+function randomPiece(): ActivePiece {
+  const width = 1 + Math.floor(Math.random() * 4); // 1-4
+  const type = 1 + Math.floor(Math.random() * 7);  // 1-7
+  const col = Math.floor(Math.random() * (COLS - width + 1));
+  return { col, width, type };
 }
 
-// ── Game Functions ─────────────────────────────────────────────────────────
-
-function generatePiece(): Piece {
-  const shape = SHAPES[randInt(SHAPES.length)];
-  const type = randInt(7) + 1;
-  return { cells: shape.map(([c, r]) => [c, r] as [number, number]), type };
-}
-
-function refillTray(state: GameState): void {
-  const allPlaced = state.tray.every(p => p === null);
-  if (allPlaced) {
-    state.tray = [generatePiece(), generatePiece(), generatePiece()];
+export function moveActive(state: GameState, dir: number): void {
+  const newCol = state.active.col + dir;
+  if (newCol >= 0 && newCol + state.active.width <= COLS) {
+    state.active.col = newCol;
   }
 }
 
-export function canPlace(state: GameState, piece: Piece, col: number, row: number): boolean {
-  for (const [dc, dr] of piece.cells) {
-    const c = col + dc;
-    const r = row + dr;
-    if (c < 0 || c >= state.cols) return false;
-    if (r < 0) return false;
-    if (state.grid.has(key(c, r))) return false;
+export function confirmPiece(state: GameState): void {
+  // Create new bottom row with the active piece
+  const row = new Array(COLS).fill(0);
+  for (let i = 0; i < state.active.width; i++) {
+    row[state.active.col + i] = state.active.type;
   }
-  return true;
+
+  // Insert at bottom, pushing everything up
+  state.grid.unshift(row);
+
+  applyGravity(state);
+  clearRows(state);
+
+  state.active = randomPiece();
 }
 
-function clearRows(state: GameState): number {
-  let cleared = 0;
-  const maxRow = getMaxRow(state);
-  if (maxRow < 0) return 0;
+// ── Gravity ────────────────────────────────────────────────────────────────
 
-  // Find all complete rows
-  const completedRows: number[] = [];
-  for (let r = 0; r <= maxRow; r++) {
-    let full = true;
-    for (let c = 0; c < state.cols; c++) {
-      if (!state.grid.has(key(c, r))) {
-        full = false;
-        break;
+function applyGravity(state: GameState): void {
+  // Per-column: compact non-empty cells down to the bottom
+  for (let c = 0; c < COLS; c++) {
+    let write = 0;
+    for (let r = 0; r < state.grid.length; r++) {
+      if (state.grid[r][c] !== 0) {
+        if (r !== write) {
+          state.grid[write][c] = state.grid[r][c];
+          state.grid[r][c] = 0;
+        }
+        write++;
       }
     }
-    if (full) completedRows.push(r);
   }
-
-  if (completedRows.length === 0) return 0;
-
-  // Remove completed rows
-  for (const r of completedRows) {
-    for (let c = 0; c < state.cols; c++) {
-      state.grid.delete(key(c, r));
-    }
-  }
-
-  // Shift rows down: rebuild grid
-  // Collect all remaining cells sorted by row
-  const remaining: { c: number; r: number; type: number }[] = [];
-  for (const [k, type] of state.grid.entries()) {
-    const [cs, rs] = k.split(',');
-    remaining.push({ c: parseInt(cs), r: parseInt(rs), type });
-  }
-  remaining.sort((a, b) => a.r - b.r);
-
-  state.grid.clear();
-  for (const cell of remaining) {
-    // Count how many cleared rows are below this cell
-    let shift = 0;
-    for (const cr of completedRows) {
-      if (cr < cell.r) shift++;
-    }
-    state.grid.set(key(cell.c, cell.r - shift), cell.type);
-  }
-
-  return completedRows.length;
 }
 
-export function placePiece(state: GameState, pieceIndex: number, col: number, row: number): void {
-  const piece = state.tray[pieceIndex];
-  if (!piece) return;
-  if (!canPlace(state, piece, col, row)) return;
+// ── Row Clearing ───────────────────────────────────────────────────────────
 
-  for (const [dc, dr] of piece.cells) {
-    state.grid.set(key(col + dc, row + dr), piece.type);
+function clearRows(state: GameState): void {
+  state.grid = state.grid.filter(row => !row.every(cell => cell !== 0));
+}
+
+// ── Camera ─────────────────────────────────────────────────────────────────
+
+export function getStackHeight(state: GameState): number {
+  for (let r = state.grid.length - 1; r >= 0; r--) {
+    if (state.grid[r].some(c => c !== 0)) return r + 1;
   }
-
-  state.tray[pieceIndex] = null;
-  clearRows(state);
-  refillTray(state);
+  return 0;
 }
 
 export function updateCamera(state: GameState): void {
-  const maxRow = getMaxRow(state);
-  // Target: keep the top of the stack visible with some padding
-  const topRowPixel = (maxRow + 3) * state.cellSize;
-  const gridArea = state.gridAreaHeight;
-
-  if (topRowPixel > gridArea) {
-    state.targetCameraY = topRowPixel - gridArea;
-  } else {
-    state.targetCameraY = 0;
+  const stackH = getStackHeight(state);
+  const overflow = stackH - state.visibleRows + 3;
+  state.targetScrollY = Math.max(0, overflow * state.cellSize);
+  state.scrollY += (state.targetScrollY - state.scrollY) * 0.1;
+  if (Math.abs(state.scrollY - state.targetScrollY) < 0.5) {
+    state.scrollY = state.targetScrollY;
   }
-
-  // Smooth lerp
-  state.cameraY += (state.targetCameraY - state.cameraY) * 0.08;
-  if (Math.abs(state.cameraY - state.targetCameraY) < 0.5) {
-    state.cameraY = state.targetCameraY;
-  }
-}
-
-export function createState(canvasWidth: number, canvasHeight: number): GameState {
-  const cols = 8;
-  const cellSize = Math.floor(canvasWidth / cols);
-  const trayHeight = cellSize * 4;
-  const gridAreaHeight = canvasHeight - trayHeight;
-  const visibleRows = Math.ceil(gridAreaHeight / cellSize);
-
-  const state: GameState = {
-    grid: new Map(),
-    cols,
-    tray: [null, null, null],
-    dragging: null,
-    cameraY: 0,
-    targetCameraY: 0,
-    startTime: Date.now(),
-    cellSize,
-    trayHeight,
-    gridAreaHeight,
-    visibleRows,
-    canvasWidth,
-    canvasHeight,
-  };
-
-  refillTray(state);
-  return state;
-}
-
-export function resize(state: GameState, w: number, h: number): void {
-  state.cellSize = Math.floor(w / state.cols);
-  state.trayHeight = state.cellSize * 4;
-  state.gridAreaHeight = h - state.trayHeight;
-  state.visibleRows = Math.ceil(state.gridAreaHeight / state.cellSize);
-  state.canvasWidth = w;
-  state.canvasHeight = h;
-}
-
-// Convert screen Y to grid row (row 0 is at the bottom of the grid area)
-export function screenToGridRow(state: GameState, screenY: number): number {
-  const gridBottom = state.gridAreaHeight;
-  const pixelFromBottom = gridBottom - screenY + state.cameraY;
-  return Math.floor(pixelFromBottom / state.cellSize);
-}
-
-export function screenToGridCol(state: GameState, screenX: number): number {
-  return Math.floor(screenX / state.cellSize);
-}
-
-// Convert grid row to screen Y (top of the cell)
-export function gridRowToScreenY(state: GameState, row: number): number {
-  const gridBottom = state.gridAreaHeight;
-  return gridBottom - (row + 1) * state.cellSize + state.cameraY;
-}
-
-export function gridColToScreenX(state: GameState, col: number): number {
-  return col * state.cellSize;
 }

@@ -1,30 +1,12 @@
-import {
-  GameState, Piece, getPieceBounds, canPlace,
-  gridRowToScreenY, gridColToScreenX, getMaxRow,
-} from './game';
+import { GameState, COLS } from './game';
 
 // ── Colors ─────────────────────────────────────────────────────────────────
 
-const BLOCK_COLORS: string[] = [
-  '',                   // 0 = unused
-  '#e8a0bf',           // 1 - soft rose
-  '#f4c27f',           // 2 - amber
-  '#a8d8a8',           // 3 - sage green
-  '#8ecae6',           // 4 - sky blue
-  '#b8a9d4',           // 5 - lavender
-  '#f4a88a',           // 6 - peach
-  '#7ecfb8',           // 7 - mint
+const COLORS = [
+  '', '#e8a0bf', '#f4c27f', '#a8d8a8', '#8ecae6', '#b8a9d4', '#f4a88a', '#7ecfb8',
 ];
-
-const BLOCK_BORDERS: string[] = [
-  '',
-  '#d4809a',
-  '#e0a85f',
-  '#88b888',
-  '#6eb0cc',
-  '#9889b8',
-  '#d88868',
-  '#5cad96',
+const BORDERS = [
+  '', '#d4809a', '#e0a85f', '#88b888', '#6eb0cc', '#9889b8', '#d88868', '#5cad96',
 ];
 
 // ── Assets ─────────────────────────────────────────────────────────────────
@@ -36,64 +18,55 @@ export interface Assets {
 
 export async function loadAssets(): Promise<Assets> {
   const assets: Assets = { bg: null, blocks: [null] };
-
-  // Try loading background
-  assets.bg = await tryLoadImage('assets/bg.png');
-
-  // Try loading block PNGs
+  assets.bg = await tryLoad('assets/bg.png');
   for (let i = 1; i <= 7; i++) {
-    assets.blocks[i] = await tryLoadImage(`assets/block_${i}.png`);
+    assets.blocks[i] = await tryLoad(`assets/block_${i}.png`);
   }
-
   return assets;
 }
 
-function tryLoadImage(src: string): Promise<HTMLImageElement | null> {
-  return new Promise(resolve => {
+function tryLoad(src: string): Promise<HTMLImageElement | null> {
+  return new Promise(r => {
     const img = new Image();
-    img.onload = () => resolve(img);
-    img.onerror = () => resolve(null);
+    img.onload = () => r(img);
+    img.onerror = () => r(null);
     img.src = src;
   });
 }
 
-// ── Drawing ────────────────────────────────────────────────────────────────
+// ── Block Drawing ──────────────────────────────────────────────────────────
 
 function drawBlock(
   ctx: CanvasRenderingContext2D,
   x: number, y: number, size: number,
-  type: number, assets: Assets, alpha: number = 1
+  type: number, assets: Assets, alpha = 1,
 ): void {
   ctx.globalAlpha = alpha;
-  const padding = Math.max(1, size * 0.06);
-  const bx = x + padding;
-  const by = y + padding;
-  const bs = size - padding * 2;
-  const radius = Math.max(2, bs * 0.15);
+  const pad = Math.max(1, size * 0.05);
+  const bx = x + pad, by = y + pad, bs = size - pad * 2;
+  const rad = Math.max(2, bs * 0.12);
 
-  const blockImg = assets.blocks[type];
-  if (blockImg) {
-    ctx.drawImage(blockImg, bx, by, bs, bs);
+  const img = assets.blocks[type];
+  if (img) {
+    ctx.drawImage(img, bx, by, bs, bs);
   } else {
-    // Fallback: draw colored rounded rect with subtle gradient
-    ctx.beginPath();
-    roundRect(ctx, bx, by, bs, bs, radius);
-
     const grad = ctx.createLinearGradient(bx, by, bx, by + bs);
-    grad.addColorStop(0, lighten(BLOCK_COLORS[type], 20));
-    grad.addColorStop(1, BLOCK_COLORS[type]);
+    const base = COLORS[type];
+    grad.addColorStop(0, lighten(base, 30));
+    grad.addColorStop(1, base);
+
+    ctx.beginPath();
+    roundRect(ctx, bx, by, bs, bs, rad);
     ctx.fillStyle = grad;
     ctx.fill();
-
-    // Border
-    ctx.strokeStyle = BLOCK_BORDERS[type];
-    ctx.lineWidth = Math.max(1, size * 0.04);
+    ctx.strokeStyle = BORDERS[type];
+    ctx.lineWidth = Math.max(1, size * 0.03);
     ctx.stroke();
 
-    // Shine highlight
+    // Shine
     ctx.beginPath();
-    roundRect(ctx, bx + bs * 0.1, by + bs * 0.08, bs * 0.35, bs * 0.2, radius * 0.5);
-    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    roundRect(ctx, bx + bs * 0.12, by + bs * 0.08, bs * 0.3, bs * 0.15, rad * 0.4);
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
     ctx.fill();
   }
   ctx.globalAlpha = 1;
@@ -101,7 +74,7 @@ function drawBlock(
 
 function roundRect(
   ctx: CanvasRenderingContext2D,
-  x: number, y: number, w: number, h: number, r: number
+  x: number, y: number, w: number, h: number, r: number,
 ): void {
   ctx.moveTo(x + r, y);
   ctx.arcTo(x + w, y, x + w, y + h, r);
@@ -111,11 +84,11 @@ function roundRect(
   ctx.closePath();
 }
 
-function lighten(hex: string, amount: number): string {
-  const r = parseInt(hex.slice(1, 3), 16);
-  const g = parseInt(hex.slice(3, 5), 16);
-  const b = parseInt(hex.slice(5, 7), 16);
-  return `rgb(${Math.min(255, r + amount)},${Math.min(255, g + amount)},${Math.min(255, b + amount)})`;
+function lighten(hex: string, n: number): string {
+  const r = Math.min(255, parseInt(hex.slice(1, 3), 16) + n);
+  const g = Math.min(255, parseInt(hex.slice(3, 5), 16) + n);
+  const b = Math.min(255, parseInt(hex.slice(5, 7), 16) + n);
+  return `rgb(${r},${g},${b})`;
 }
 
 // ── Main Draw ──────────────────────────────────────────────────────────────
@@ -125,190 +98,105 @@ export function drawFrame(
   state: GameState,
   assets: Assets,
   dpr: number,
+  canvasEl: HTMLCanvasElement,
 ): void {
-  const w = state.canvasWidth;
-  const h = state.canvasHeight;
-  const cs = state.cellSize;
+  const { canvasW, canvasH, cellSize, gridAreaH, activeAreaH, scrollY } = state;
 
-  // Clear
-  ctx.clearRect(0, 0, w * dpr, h * dpr);
+  ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
   ctx.save();
   ctx.scale(dpr, dpr);
 
-  // Background
+  // ── Background ──
   if (assets.bg) {
-    ctx.drawImage(assets.bg, 0, 0, w, h);
+    ctx.drawImage(assets.bg, 0, 0, canvasW, canvasH);
   } else {
-    const bgGrad = ctx.createLinearGradient(0, 0, 0, h);
-    bgGrad.addColorStop(0, '#16162a');
-    bgGrad.addColorStop(1, '#1a1a3e');
-    ctx.fillStyle = bgGrad;
-    ctx.fillRect(0, 0, w, h);
+    const bg = ctx.createLinearGradient(0, 0, 0, canvasH);
+    bg.addColorStop(0, '#0f0f23');
+    bg.addColorStop(1, '#1a1a3e');
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, canvasW, canvasH);
   }
 
-  // ── Grid area ──
+  // ── Grid area (clipped) ──
   ctx.save();
   ctx.beginPath();
-  ctx.rect(0, 0, w, state.gridAreaHeight);
+  ctx.rect(0, 0, canvasW, gridAreaH);
   ctx.clip();
 
-  // Grid lines (subtle)
-  const startRow = Math.floor(state.cameraY / cs) - 1;
-  const endRow = startRow + state.visibleRows + 3;
-
-  ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+  // Subtle grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
   ctx.lineWidth = 1;
-  for (let c = 0; c <= state.cols; c++) {
-    const x = c * cs;
+  for (let c = 1; c < COLS; c++) {
     ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, state.gridAreaHeight);
-    ctx.stroke();
-  }
-  for (let r = startRow; r <= endRow; r++) {
-    const y = gridRowToScreenY(state, r);
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(w, y);
+    ctx.moveTo(c * cellSize, 0);
+    ctx.lineTo(c * cellSize, gridAreaH);
     ctx.stroke();
   }
 
-  // Draw bottom line (floor)
-  const floorY = gridRowToScreenY(state, -1) + cs;
-  if (floorY <= state.gridAreaHeight) {
+  // Floor line
+  const floorY = gridAreaH + scrollY;
+  if (floorY > 0 && floorY <= gridAreaH) {
     ctx.strokeStyle = 'rgba(255,255,255,0.15)';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(0, floorY);
-    ctx.lineTo(w, floorY);
+    ctx.lineTo(canvasW, floorY);
     ctx.stroke();
   }
 
-  // Placed blocks
-  for (const [k, type] of state.grid.entries()) {
-    const [cs_str, rs_str] = k.split(',');
-    const col = parseInt(cs_str);
-    const row = parseInt(rs_str);
-    const sy = gridRowToScreenY(state, row);
-    if (sy > state.gridAreaHeight + cs || sy < -cs) continue;
-    drawBlock(ctx, gridColToScreenX(state, col), sy, cs, type, assets);
-  }
-
-  // Ghost preview (dragging piece over grid)
-  if (state.dragging) {
-    const piece = state.tray[state.dragging.pieceIndex];
-    if (piece) {
-      const alpha = state.dragging.valid ? 0.5 : 0.25;
-      for (const [dc, dr] of piece.cells) {
-        const c = state.dragging.gridCol + dc;
-        const r = state.dragging.gridRow + dr;
-        const sx = gridColToScreenX(state, c);
-        const sy = gridRowToScreenY(state, r);
-        drawBlock(ctx, sx, sy, cs, piece.type, assets, alpha);
-      }
-      // Validity indicator
-      if (!state.dragging.valid) {
-        for (const [dc, dr] of piece.cells) {
-          const c = state.dragging.gridCol + dc;
-          const r = state.dragging.gridRow + dr;
-          const sx = gridColToScreenX(state, c);
-          const sy = gridRowToScreenY(state, r);
-          ctx.fillStyle = 'rgba(255,80,80,0.2)';
-          ctx.fillRect(sx, sy, cs, cs);
-        }
+  // Placed blocks — row 0 = bottom
+  for (let r = 0; r < state.grid.length; r++) {
+    const sy = gridAreaH - (r + 1) * cellSize + scrollY;
+    if (sy > gridAreaH || sy < -cellSize) continue;
+    for (let c = 0; c < COLS; c++) {
+      if (state.grid[r][c] !== 0) {
+        drawBlock(ctx, c * cellSize, sy, cellSize, state.grid[r][c], assets);
       }
     }
   }
 
-  ctx.restore(); // Unclip grid area
+  ctx.restore(); // unclip
 
-  // ── Tray area ──
-  const trayTop = state.gridAreaHeight;
+  // ── Active piece area ──
+  const areaTop = gridAreaH;
 
-  // Tray background
-  ctx.fillStyle = 'rgba(0,0,0,0.3)';
-  ctx.fillRect(0, trayTop, w, state.trayHeight);
+  ctx.fillStyle = 'rgba(0,0,0,0.35)';
+  ctx.fillRect(0, areaTop, canvasW, activeAreaH);
 
-  // Separator line
-  ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.08)';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(0, trayTop);
-  ctx.lineTo(w, trayTop);
+  ctx.moveTo(0, areaTop);
+  ctx.lineTo(canvasW, areaTop);
   ctx.stroke();
 
-  // Draw 3 tray slots
-  const slotWidth = w / 3;
-  for (let i = 0; i < 3; i++) {
-    const piece = state.tray[i];
-    if (!piece) continue;
-
-    // Skip the piece being dragged
-    if (state.dragging && state.dragging.pieceIndex === i) continue;
-
-    const bounds = getPieceBounds(piece);
-    const pieceDrawSize = Math.min(
-      (slotWidth - 16) / bounds.w,
-      (state.trayHeight - 16) / bounds.h,
-      cs * 0.8
-    );
-
-    const slotCenterX = slotWidth * i + slotWidth / 2;
-    const slotCenterY = trayTop + state.trayHeight / 2;
-    const startX = slotCenterX - (bounds.w * pieceDrawSize) / 2;
-    const startY = slotCenterY - (bounds.h * pieceDrawSize) / 2;
-
-    for (const [dc, dr] of piece.cells) {
-      drawBlock(ctx, startX + dc * pieceDrawSize, startY + dr * pieceDrawSize,
-        pieceDrawSize, piece.type, assets, 0.9);
-    }
+  // Active piece
+  const pieceY = areaTop + (activeAreaH - cellSize) / 2;
+  for (let i = 0; i < state.active.width; i++) {
+    drawBlock(ctx, (state.active.col + i) * cellSize, pieceY, cellSize, state.active.type, assets);
   }
 
-  // Draw dragged piece at pointer position (if dragging and pointer is in tray area)
-  if (state.dragging) {
-    const piece = state.tray[state.dragging.pieceIndex];
-    if (piece && state.dragging.screenY > state.gridAreaHeight) {
-      const bounds = getPieceBounds(piece);
-      const drawSize = cs * 0.7;
-      const startX = state.dragging.screenX - (bounds.w * drawSize) / 2;
-      const startY = state.dragging.screenY - (bounds.h * drawSize) / 2 - cs;
-      for (const [dc, dr] of piece.cells) {
-        drawBlock(ctx, startX + dc * drawSize, startY + dr * drawSize,
-          drawSize, piece.type, assets, 0.7);
-      }
-    }
-  }
+  // Subtle left/right indicators
+  ctx.fillStyle = 'rgba(255,255,255,0.07)';
+  ctx.font = `${Math.round(cellSize * 0.5)}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  const midY = areaTop + activeAreaH / 2;
+  ctx.fillText('◂', cellSize * 0.4, midY);
+  ctx.fillText('▸', canvasW - cellSize * 0.4, midY);
 
   // ── Timer ──
   const elapsed = Math.floor((Date.now() - state.startTime) / 1000);
-  const mins = Math.floor(elapsed / 60);
-  const secs = elapsed % 60;
-  const timeStr = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  const mins = String(Math.floor(elapsed / 60)).padStart(2, '0');
+  const secs = String(elapsed % 60).padStart(2, '0');
 
-  ctx.font = `${Math.round(cs * 0.5)}px monospace`;
+  ctx.font = `${Math.round(cellSize * 0.4)}px monospace`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-
-  // Shadow
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  ctx.fillText(timeStr, w / 2 + 1, 12 + 1);
-
-  // Text
-  ctx.fillStyle = 'rgba(255,255,255,0.6)';
-  ctx.fillText(timeStr, w / 2, 12);
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.fillText(`${mins}:${secs}`, canvasW / 2 + 1, 13);
+  ctx.fillStyle = 'rgba(255,255,255,0.45)';
+  ctx.fillText(`${mins}:${secs}`, canvasW / 2, 12);
 
   ctx.restore();
-}
-
-// ── Tray hit-testing ───────────────────────────────────────────────────────
-
-export function hitTestTray(state: GameState, x: number, y: number): number {
-  if (y < state.gridAreaHeight) return -1;
-
-  const slotWidth = state.canvasWidth / 3;
-  const slotIndex = Math.floor(x / slotWidth);
-  if (slotIndex < 0 || slotIndex > 2) return -1;
-  if (!state.tray[slotIndex]) return -1;
-
-  return slotIndex;
 }
