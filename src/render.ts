@@ -19,15 +19,16 @@ if (typeof CanvasRenderingContext2D !== 'undefined' &&
 
 // ── Skin types ────────────────────────────────────────────────────────────
 
-export type SkinType = 'primitive' | 'emoji' | 'flags';
+export type SkinType = 'primitive' | 'emoji' | 'flags' | 'excel';
 
 export const SKIN_LABELS: Record<SkinType, string> = {
   primitive: 'Primitive',
   emoji: 'Emoji',
   flags: 'Flags',
+  excel: 'Excel',
 };
 
-export const SKIN_LIST: SkinType[] = ['primitive', 'emoji', 'flags'];
+export const SKIN_LIST: SkinType[] = ['primitive', 'emoji', 'flags', 'excel'];
 
 // ── Bauhaus palette ───────────────────────────────────────────────────────
 
@@ -45,6 +46,42 @@ function getBlockStyle(blockId: number): BlockStyle {
   const colorIdx = Math.floor((blockId * 137.508) % COLORS.length);
   const shapeIdx = Math.floor((blockId * 73.137) % SHAPES.length);
   return { color: COLORS[colorIdx], shape: SHAPES[shapeIdx] };
+}
+
+// ── Excel palette (pastel, from screenshots) ──────────────────────────────
+
+const EXCEL_COLORS = [
+  '#2E7D32', // dark green
+  '#4CAF50', // medium green
+  '#FFF9C4', // light yellow
+  '#FFCC80', // peach/orange
+  '#A1887F', // brown/tan
+  '#BBDEFB', // light blue
+  '#F8BBD0', // pink
+  '#FFFFFF', // white
+  '#D7CCC8', // light brown
+  '#C8E6C9', // light green
+  '#FFE0B2', // light peach
+  '#E1BEE7', // light purple
+];
+
+const EXCEL_TEXTS = [
+  '#Ref?', 'Split', 'Lock', '/S', '-FormatPaint', '=SUM()', '#N/A',
+  'TRUE', 'FALSE', '#DIV/0!', 'VLOOKUP', 'Merge', '#VALUE!',
+  '=IF()', '#NAME?', 'Ctrl+Z', '=MAX()', 'Wrap', '$A$1', 'F2',
+  'Sort', 'Filter', '=LEN()', 'Paste', 'Bold', '=AVG()', '#NULL!',
+];
+
+const COL_HEADERS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+
+function getExcelColor(blockId: number): string {
+  return EXCEL_COLORS[Math.floor((blockId * 137.508) % EXCEL_COLORS.length)];
+}
+
+function getExcelText(blockId: number): string | null {
+  // ~25% of blocks get text
+  if ((blockId * 31) % 4 !== 0) return null;
+  return EXCEL_TEXTS[Math.floor((blockId * 73.137) % EXCEL_TEXTS.length)];
 }
 
 // ── Emoji pool ────────────────────────────────────────────────────────────
@@ -85,8 +122,7 @@ const EMOJI = [
 ];
 
 function getBlockEmoji(blockId: number): string {
-  const idx = Math.floor((blockId * 137.508) % EMOJI.length);
-  return EMOJI[idx];
+  return EMOJI[Math.floor((blockId * 137.508) % EMOJI.length)];
 }
 
 // ── Flag emoji pool ───────────────────────────────────────────────────────
@@ -109,8 +145,7 @@ const FLAGS = [
 ];
 
 function getBlockFlag(blockId: number): string {
-  const idx = Math.floor((blockId * 137.508) % FLAGS.length);
-  return FLAGS[idx];
+  return FLAGS[Math.floor((blockId * 137.508) % FLAGS.length)];
 }
 
 // ── Assets ─────────────────────────────────────────────────────────────────
@@ -221,13 +256,35 @@ function drawCell(
   const img = assets.cells[shade];
   if (img) {
     ctx.drawImage(img, bx, by, actualSize, actualSize);
+  } else if (skin === 'excel') {
+    // Excel-style colored cell
+    const color = getExcelColor(blockId);
+    ctx.fillStyle = color;
+    ctx.fillRect(bx, by, actualSize, actualSize);
+
+    // Thin border
+    ctx.strokeStyle = '#b0b0b0';
+    ctx.lineWidth = 0.5;
+    ctx.strokeRect(bx, by, actualSize, actualSize);
+
+    // Random Excel text
+    const text = getExcelText(blockId);
+    if (text) {
+      const fontSize = Math.round(actualSize * 0.28);
+      ctx.font = `${fontSize}px "Segoe UI", Arial, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      // Dark text on light backgrounds, light on dark
+      const isDark = color === '#2E7D32' || color === '#4CAF50';
+      ctx.fillStyle = isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.45)';
+      ctx.fillText(text, bx + actualSize / 2, by + actualSize / 2, actualSize - 4);
+    }
   } else if (skin === 'emoji' || skin === 'flags') {
     // Black cell background
     const pad = actualSize * 0.03;
     ctx.fillStyle = '#0d0d0d';
     ctx.fillRect(bx + pad, by + pad, actualSize - pad * 2, actualSize - pad * 2);
 
-    // Draw emoji/flag centered
     const ch = skin === 'flags' ? getBlockFlag(blockId) : getBlockEmoji(blockId);
     const fontSize = Math.round(actualSize * 0.72);
     ctx.font = `${fontSize}px serif`;
@@ -243,10 +300,16 @@ function drawCell(
   }
 
   if (highlight) {
-    const pad = actualSize * 0.04;
-    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-    ctx.lineWidth = Math.max(2, size * 0.05);
-    ctx.strokeRect(bx + pad, by + pad, actualSize - pad * 2, actualSize - pad * 2);
+    if (skin === 'excel') {
+      ctx.strokeStyle = '#1565C0';
+      ctx.lineWidth = Math.max(2, size * 0.05);
+      ctx.strokeRect(bx, by, actualSize, actualSize);
+    } else {
+      const pad = actualSize * 0.04;
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+      ctx.lineWidth = Math.max(2, size * 0.05);
+      ctx.strokeRect(bx + pad, by + pad, actualSize - pad * 2, actualSize - pad * 2);
+    }
   }
 
   ctx.globalAlpha = 1;
@@ -281,15 +344,79 @@ export function drawFrame(
   menuOpen: boolean,
 ): void {
   const { canvasW, canvasH, cellSize, scrollY } = state;
+  const isExcel = skin === 'excel';
 
   ctx.clearRect(0, 0, canvasW * dpr, canvasH * dpr);
   ctx.save();
   ctx.scale(dpr, dpr);
 
   // ── Background ──
-  if (assets.bg) {
+  if (assets.bg && !isExcel) {
     ctx.drawImage(assets.bg, 0, 0, canvasW, canvasH);
+  } else if (isExcel) {
+    // White spreadsheet background
+    ctx.fillStyle = '#f5f5f5';
+    ctx.fillRect(0, 0, canvasW, canvasH);
+
+    // Excel grid lines
+    const cs = cellSize;
+    ctx.strokeStyle = '#d0d0d0';
+    ctx.lineWidth = 1;
+    // Vertical
+    for (let c = 0; c <= COLS; c++) {
+      ctx.beginPath();
+      ctx.moveTo(c * cs, 0);
+      ctx.lineTo(c * cs, canvasH);
+      ctx.stroke();
+    }
+    // Horizontal
+    const startRow = Math.floor(scrollY / cs);
+    const endRow = startRow + state.visibleRows + 2;
+    for (let r = startRow; r <= endRow + 1; r++) {
+      const sy = canvasH - r * cs + scrollY;
+      ctx.beginPath();
+      ctx.moveTo(0, sy);
+      ctx.lineTo(canvasW, sy);
+      ctx.stroke();
+    }
+
+    // Row numbers on both sides
+    const rowFontSize = Math.round(cs * 0.3);
+    ctx.font = `${rowFontSize}px "Segoe UI", Arial, sans-serif`;
+    ctx.fillStyle = '#888';
+    ctx.textBaseline = 'middle';
+    for (let r = startRow; r <= endRow; r++) {
+      if (r < 0) continue;
+      const sy = canvasH - (r + 0.5) * cs + scrollY;
+      if (sy < -cs || sy > canvasH + cs) continue;
+      const label = String(r + 1);
+      // Left
+      ctx.textAlign = 'center';
+      ctx.fillText(label, cs * 0.35, sy);
+      // Right
+      ctx.fillText(label, canvasW - cs * 0.35, sy);
+    }
+
+    // Column headers A-H at top (fixed)
+    const headerH = cs * 0.7;
+    ctx.fillStyle = '#e8e8e8';
+    ctx.fillRect(0, 0, canvasW, headerH);
+    ctx.strokeStyle = '#c0c0c0';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, headerH);
+    ctx.lineTo(canvasW, headerH);
+    ctx.stroke();
+
+    ctx.font = `600 ${Math.round(cs * 0.35)}px "Segoe UI", Arial, sans-serif`;
+    ctx.fillStyle = '#555';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (let c = 0; c < COLS; c++) {
+      ctx.fillText(COL_HEADERS[c], (c + 0.5) * cs, headerH / 2);
+    }
   } else {
+    // Dark skins background
     const cs = cellSize;
     ctx.fillStyle = '#111111';
     ctx.fillRect(0, 0, canvasW, canvasH);
@@ -306,25 +433,27 @@ export function drawFrame(
     }
   }
 
-  // ── Grid lines ──
-  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
-  ctx.lineWidth = 1;
-  for (let c = 1; c < COLS; c++) {
-    ctx.beginPath();
-    ctx.moveTo(c * cellSize, 0);
-    ctx.lineTo(c * cellSize, canvasH);
-    ctx.stroke();
-  }
+  if (!isExcel) {
+    // Grid lines (dark skins)
+    ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+    ctx.lineWidth = 1;
+    for (let c = 1; c < COLS; c++) {
+      ctx.beginPath();
+      ctx.moveTo(c * cellSize, 0);
+      ctx.lineTo(c * cellSize, canvasH);
+      ctx.stroke();
+    }
 
-  // ── Floor line ──
-  const floorY = canvasH + scrollY;
-  if (floorY > 0 && floorY <= canvasH) {
-    ctx.strokeStyle = 'rgba(255,255,255,0.1)';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(0, floorY);
-    ctx.lineTo(canvasW, floorY);
-    ctx.stroke();
+    // Floor line
+    const floorY = canvasH + scrollY;
+    if (floorY > 0 && floorY <= canvasH) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, floorY);
+      ctx.lineTo(canvasW, floorY);
+      ctx.stroke();
+    }
   }
 
   // ── Blocks ──
@@ -362,43 +491,75 @@ export function drawFrame(
     ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
     : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 
-  const fontSize = Math.round(cellSize * 0.8);
-  // Position at ~15th row from bottom so iPhone camera notch doesn't cover it
-  const timerY = Math.max(cellSize * 0.6, canvasH - cellSize * 15);
-  ctx.font = `600 ${fontSize}px monospace`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'top';
+  if (isExcel) {
+    // Excel-style timer: row 1, light blue left half, light green right half
+    const headerH = cellSize * 0.7;
+    const timerRowY = headerH;
+    const rowH = cellSize;
+    const halfW = canvasW / 2;
 
-  // Measure timer text
-  const timerMetrics = ctx.measureText(timeStr);
-  const timerTextW = timerMetrics.width;
+    // Light blue left (timer)
+    ctx.fillStyle = '#d4e8f7';
+    ctx.fillRect(0, timerRowY, halfW, rowH);
+    // Light green right (SUM)
+    ctx.fillStyle = '#d8ecd4';
+    ctx.fillRect(halfW, timerRowY, halfW, rowH);
+    // Border
+    ctx.strokeStyle = '#b0b0b0';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0, timerRowY, halfW, rowH);
+    ctx.strokeRect(halfW, timerRowY, halfW, rowH);
 
-  // Hamburger icon (three horizontal bars using ≡)
-  const hamburgerStr = '≡';
-  const hamburgerGap = fontSize * 0.3;
-  const totalW = timerTextW + hamburgerGap + fontSize * 0.6;
-  const startX = canvasW / 2 - totalW / 2;
-  const timerCenterX = startX + timerTextW / 2;
-  const hamburgerX = startX + timerTextW + hamburgerGap;
+    const timerFontSize = Math.round(cellSize * 0.4);
+    ctx.font = `500 ${timerFontSize}px "Segoe UI", Arial, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#333';
+    ctx.fillText(timeStr, halfW / 2, timerRowY + rowH / 2);
+    ctx.fillText('≡', halfW - timerFontSize * 0.7, timerRowY + rowH / 2);
 
-  // Shadow
-  ctx.fillStyle = 'rgba(0,0,0,0.4)';
-  ctx.textAlign = 'left';
-  ctx.fillText(timeStr, startX + 1, timerY + 1);
-  ctx.fillText(hamburgerStr, hamburgerX + 1, timerY + 1);
+    // SUM label
+    const sumVal = state.grid.reduce((acc, row) =>
+      acc + row.reduce((a, c) => a + (c ? 1 : 0), 0), 0);
+    ctx.fillText(`SUM: ${sumVal}`, halfW + halfW / 2, timerRowY + rowH / 2);
 
-  // Main text
-  ctx.fillStyle = 'rgba(255,255,255,0.55)';
-  ctx.fillText(timeStr, startX, timerY);
-  ctx.fillText(hamburgerStr, hamburgerX, timerY);
+    lastTimerHit = {
+      x: 0,
+      y: timerRowY,
+      w: canvasW,
+      h: rowH,
+    };
+  } else {
+    // Dark skins timer
+    const fontSize = Math.round(cellSize * 0.8);
+    const timerY = Math.max(cellSize * 0.6, canvasH - cellSize * 15);
+    ctx.font = `600 ${fontSize}px monospace`;
+    ctx.textBaseline = 'top';
 
-  // Store hit area for the whole timer+hamburger block
-  lastTimerHit = {
-    x: startX - 10,
-    y: timerY - 10,
-    w: totalW + 20,
-    h: fontSize + 20,
-  };
+    const timerMetrics = ctx.measureText(timeStr);
+    const timerTextW = timerMetrics.width;
+    const hamburgerStr = '≡';
+    const hamburgerGap = fontSize * 0.3;
+    const totalW = timerTextW + hamburgerGap + fontSize * 0.6;
+    const startX = canvasW / 2 - totalW / 2;
+    const hamburgerX = startX + timerTextW + hamburgerGap;
+
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    ctx.textAlign = 'left';
+    ctx.fillText(timeStr, startX + 1, timerY + 1);
+    ctx.fillText(hamburgerStr, hamburgerX + 1, timerY + 1);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.fillText(timeStr, startX, timerY);
+    ctx.fillText(hamburgerStr, hamburgerX, timerY);
+
+    lastTimerHit = {
+      x: startX - 10,
+      y: timerY - 10,
+      w: totalW + 20,
+      h: fontSize + 20,
+    };
+  }
 
   // ── Dropdown menu ──
   if (menuOpen) {
@@ -406,14 +567,19 @@ export function drawFrame(
     const menuItemH = menuFontSize * 2;
     const menuW = cellSize * 5;
     const menuX = (canvasW - menuW) / 2;
-    const menuY = timerY + fontSize + 10;
+    const menuY = lastTimerHit.y + lastTimerHit.h + 5;
 
-    // Background
-    ctx.fillStyle = 'rgba(0,0,0,0.9)';
+    const menuH = menuItemH * SKIN_LIST.length + 8;
+    if (isExcel) {
+      ctx.fillStyle = '#f0f0f0';
+      ctx.strokeStyle = '#aaa';
+    } else {
+      ctx.fillStyle = 'rgba(0,0,0,0.9)';
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    }
     ctx.beginPath();
-    ctx.roundRect(menuX, menuY, menuW, menuItemH * SKIN_LIST.length + 8, 8);
+    ctx.roundRect(menuX, menuY, menuW, menuH, 8);
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
     ctx.lineWidth = 1;
     ctx.stroke();
 
@@ -423,20 +589,23 @@ export function drawFrame(
     ctx.textBaseline = 'middle';
 
     for (let i = 0; i < SKIN_LIST.length; i++) {
-      const s = SKIN_LIST[i];
+      const sk = SKIN_LIST[i];
       const itemY = menuY + 4 + i * menuItemH;
 
-      // Highlight current skin
-      if (s === skin) {
-        ctx.fillStyle = 'rgba(255,255,255,0.08)';
+      if (sk === skin) {
+        ctx.fillStyle = isExcel ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.08)';
         ctx.fillRect(menuX + 2, itemY, menuW - 4, menuItemH);
       }
 
-      ctx.fillStyle = s === skin ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.5)';
-      ctx.fillText(SKIN_LABELS[s], menuX + menuW / 2, itemY + menuItemH / 2);
+      if (isExcel) {
+        ctx.fillStyle = sk === skin ? '#222' : '#666';
+      } else {
+        ctx.fillStyle = sk === skin ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.5)';
+      }
+      ctx.fillText(SKIN_LABELS[sk], menuX + menuW / 2, itemY + menuItemH / 2);
 
       lastMenuHit.items.push({
-        x: menuX, y: itemY, w: menuW, h: menuItemH, skin: s,
+        x: menuX, y: itemY, w: menuW, h: menuItemH, skin: sk,
       });
     }
   } else {

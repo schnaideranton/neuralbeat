@@ -230,9 +230,9 @@ function generateRow(state: GameState, stackHeight: number): (Cell | null)[] {
 
   // Aggressive fill: keep screen ~80% full, always challenging
   let minFill: number, maxFill: number;
-  if (stackHeight > 25) { minFill = 5; maxFill = 6; }
-  else if (stackHeight > 18) { minFill = 6; maxFill = 7; }
-  else { minFill = 6; maxFill = 8; }
+  if (stackHeight > 30) { minFill = 6; maxFill = 7; }
+  else if (stackHeight > 20) { minFill = 7; maxFill = 7; }
+  else { minFill = 7; maxFill = 8; }
 
   let fillTarget = minFill + Math.floor(Math.random() * (maxFill - minFill + 1));
 
@@ -278,14 +278,14 @@ function generateRow(state: GameState, stackHeight: number): (Cell | null)[] {
   return row;
 }
 
-// Weighted random width: bias toward 2-3, fewer tiny 1s
+// Weighted random width: more small pieces = harder to align
 function pickWidth(maxAvail: number): number {
   const max = Math.min(4, maxAvail);
   if (max === 1) return 1;
   const r = Math.random();
-  if (max >= 4 && r < 0.15) return 4;
-  if (max >= 3 && r < 0.50) return 3;
-  if (max >= 2 && r < 0.85) return 2;
+  if (max >= 4 && r < 0.08) return 4;
+  if (max >= 3 && r < 0.28) return 3;
+  if (max >= 2 && r < 0.65) return 2;
   return 1;
 }
 
